@@ -1,13 +1,21 @@
 extern crate proc_macro;
-use proc_macro::{TokenStream, Ident};
+use proc_macro::TokenStream;
 use quote::quote;
-use syn::{FieldsNamed, Attribute, Data, DataStruct, DeriveInput, Field, Fields, ItemStruct, parse_macro_input, Meta, Path, PathSegment};
+use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta};
 
+/// A custom derive macro meant for data model structs that are connected, in some way,
+/// to a data subject. This produces an implementation of the `Schemable` trait
+/// for this struct.
+/// - The #[collection(_)] macro helps identify the name of the collection associated
+/// with the struct in Mongo.
+/// - The #[owned_by(_)] macro is used to annotate fields containing references to other
+/// models or collections.
 #[proc_macro_derive(Schema, attributes(owned_by, collection))]
 pub fn derive_schema(input: TokenStream) -> TokenStream {
+    // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
     // TODO: separate out schema into another macro?
-    let collection_name : Option<String> = {
+    let collection_name: Option<String> = {
         let mut a = None;
         for attr in &input.attrs {
             if let Meta::List(ml) = &attr.meta {
@@ -23,7 +31,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     };
     let collection_name = collection_name.unwrap();
 
-
+    // Identify the Rust struct associated with the input string (eg. "User" -> User)
     let curr_struct = input.ident.to_string();
     let curr_struct_type = syn::Ident::new(&curr_struct, proc_macro2::Span::call_site());
 
@@ -57,7 +65,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                 }
             }
         };
-        return gen.into()
+        return gen.into();
     }
 
     TokenStream::new()
@@ -76,7 +84,10 @@ fn extract_fields_from_schema(input: DeriveInput) -> Option<FieldsNamed> {
     }
 }
 
-fn find_fk_field(fields: &FieldsNamed) -> Option<&Field>{
+/// Given a `FieldsNamed` reference to a set of fields, return an option
+/// containing the field annotated by #[owned_by(_)]. Return None if
+/// no such field is found.
+fn find_fk_field(fields: &FieldsNamed) -> Option<&Field> {
     for field in fields.named.iter() {
         if field.attrs.len() > 0 {
             for attr in &field.attrs {
@@ -93,6 +104,8 @@ fn find_fk_field(fields: &FieldsNamed) -> Option<&Field>{
     return None;
 }
 
+/// Extract the parameter given to a macro of the form #[macro_name(param)] and
+/// return it as an option.
 fn find_owner(field: &Field) -> Option<String> {
     for attr in &field.attrs {
         if let Meta::List(ml) = &attr.meta {
@@ -119,7 +132,7 @@ fn find_owner(field: &Field) -> Option<String> {
 // info being passed to the macro gets stored in a data structure somewhere
 //
 //
-// Application calls delete on User struct (gives it user key) -> macro figures out what else 
+// Application calls delete on User struct (gives it user key) -> macro figures out what else
 // depends on the user struct and recurses and so would have to provide the foreign key
 //
 // macro takes in additional parameters that handles which fields refer to which collection
