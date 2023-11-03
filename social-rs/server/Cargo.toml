@@ -10,3 +10,4 @@ mongowner = { path = "../../mongowner" }
 mongowner-macros = { path = "../../mongowner/mongowner-macros/" }
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.0", features = ["full"] }
+dotenv = "0.15.0"
