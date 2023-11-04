@@ -5,22 +5,33 @@ use mongowner::Schemable;
 use user::User;
 use post::Post;
 use mongowner::mongo::options::{ClientOptions};
-use mongowner::mongo::{Client, Collection};
+use mongowner::mongo::{Client, Collection, Database};
 use mongowner::mongo::error::Result;
 use mongowner::mongo::bson::doc;
+use dotenv::dotenv;
+use uuid::Uuid;
+
+const DB_NAME: &str = "social";
+
+// helper function to connect to MongoDB
+async fn mongo_connect(uri: String) -> Result<(Database)> {
+    let client_options = ClientOptions::parse(&uri).await?;
+    let client = Client::with_options(client_options)?;
+    Ok(client.database(DB_NAME))
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv().ok();
     // Replace the placeholder with your Atlas connection string
-    let uri = "mongodb://localhost:27017";
-    let client_options = ClientOptions::parse(uri).await?;
-    // Set the server_api field of the client_options object to Stable API version 1
-    let client = Client::with_options(client_options)?;
-    // Send a ping to confirm a successful connection
-    let db = client.database("social");
+    let db = {
+        let mongo_uri = std::env::var("MONGOURI")
+            .expect("MONGOURI field must be set");
+        mongo_connect(mongo_uri).await?
+    };
 
     let test_user_a = User {
-        id: None,
+        user_id: Uuid::new_v4(),
         username: "Alice".to_string(),
         first_name: "Alice".to_string(),
         last_name: "Bob".to_string(),
@@ -29,9 +40,8 @@ async fn main() -> Result<()> {
     };
 
     let post = Post {
-        id: None,
         text: "Hello this is a post".to_string(),
-        posted_by: 0,
+        posted_by: test_user_a.user_id,
         date: "12th March 2023".to_string(),
     };
 
