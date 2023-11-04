@@ -14,6 +14,7 @@ use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta
 pub fn derive_schema(input: TokenStream) -> TokenStream {
     // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
+    println!("input: {:?}", input);
     // TODO: separate out schema into another macro?
     let collection_name: Option<String> = {
         let mut a = None;
