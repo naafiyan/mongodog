@@ -55,7 +55,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         // };
         let gen = quote! {
             impl Schemable for #curr_struct_type {
-                fn collection_name(&self) -> &'static str {
+                fn collection_name() -> &'static str {
                     #collection_name
                 }
                 fn cascade_delete(&self) {
