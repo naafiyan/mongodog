@@ -1,16 +1,16 @@
 mod post;
 mod user;
-
+use std::vec;
 use mongowner::Schemable;
 use user::User;
 use post::Post;
-use mongowner::mongo::options::{ClientOptions};
 use mongowner::mongo::{Client, Collection, Database};
-use mongowner::mongo::error::Result;
+use mongowner::mongo::Cursor;
 use mongowner::mongo::bson::doc;
 use dotenv::dotenv;
 use uuid::Uuid;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use futures::stream::{StreamExt, TryStreamExt};
 
 const DB_NAME: &str = "social";
 
@@ -20,8 +20,16 @@ async fn home() -> impl Responder {
 }
 
 #[get("/get_all_users")]
-async fn get_all_users() -> impl Responder {
-    HttpResponse::Ok().body("Getting all users:")
+async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
+    let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
+    let mut cursor = match collection.find(None, None).await {
+        mongowner::mongo::error::Result::Ok(cursor) => cursor,
+        mongowner::mongo::error::Result::Err(err) => panic!() // TODO: N - better error handling
+    };
+    let mut user_vec: Vec<User> = Vec::new();
+    // TODO: N - loop through and add users
+
+    HttpResponse::Ok().json(user_vec)
 }
 
 /// Gets the user with the supplied username.
@@ -44,6 +52,7 @@ async fn get_user(client: web::Data<Client>, username: web::Path<String>) -> Htt
 #[post("/add_user")]
 async fn add_user(client: web::Data<Client>, form: web::Form<User>) -> HttpResponse {
     let collection = client.database(DB_NAME).collection("users");
+    println!("Getting user to add: {:?}", form.clone());
     let result = collection.insert_one(form.into_inner(), None).await;
     match result {
         Ok(_) => HttpResponse::Ok().body("user added"),
