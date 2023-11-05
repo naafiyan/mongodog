@@ -1,7 +1,26 @@
 extern crate proc_macro;
 use proc_macro::TokenStream;
+use proc_macro2::Ident;
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta};
+
+// enum to represent all the types of schema annotations
+enum SchemaAnnotations {
+    OwnedBy,
+    Index,
+    CollectionName
+}
+
+impl SchemaAnnotations {
+    fn as_str(&self) -> &'static str {
+        match self {
+            SchemaAnnotations::Index => "index",
+            SchemaAnnotations::OwnedBy => "owned_by",
+            SchemaAnnotations::CollectionName => "collection"
+        }
+    }
+
+}
 
 /// A custom derive macro meant for data model structs that are connected, in some way,
 /// to a data subject. This produces an implementation of the `Schemable` trait
@@ -10,79 +29,139 @@ use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta
 /// with the struct in Mongo.
 /// - The #[owned_by(_)] macro is used to annotate fields containing references to other
 /// models or collections.
-#[proc_macro_derive(Schema, attributes(owned_by, collection))]
+#[proc_macro_derive(Schema, attributes(owned_by, collection, index))]
 pub fn derive_schema(input: TokenStream) -> TokenStream {
     // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
     println!("input: {:?}", input);
-    // TODO: separate out schema into another macro?
-    let collection_name: Option<String> = {
-        let mut a = None;
-        for attr in &input.attrs {
-            if let Meta::List(ml) = &attr.meta {
-                for seg in &ml.path.segments {
-                    if seg.ident.to_string() == "collection".to_string() {
-                        a = Some(ml.tokens.to_string());
-                        break;
+
+    let collection_name = match parse_collection_name(&input) {
+        Some(name) => name,
+        None => panic!("All schemas must have collection names")
+    };
+
+    // Identify the Rust struct associated with the input string (eg. "User" -> User)
+    let curr_struct_type = generate_struct_type(input.ident.to_string());
+
+    let fields = extract_fields_from_schema(input);
+    let owned_by_field = find_field_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
+    let index_field = find_field_by_annotation(&fields, SchemaAnnotations::Index.as_str());
+
+    let owned_by_field_name = find_field_name(owned_by_field);
+    let index_field_name = find_field_name(index_field);
+
+    println!("owned_by_field_name: {:?}", owned_by_field_name);
+    println!("index_field: {:?}", index_field_name);
+    
+
+    // TODO: handle the case where there is NO owned_by annotation, i.e. data subject
+    // curent approach of just unwrapping causes a panic since we might be unwrapping a None
+    // object when there is no owned_by annotation
+    //
+    // let field = find_fk_field(&fields).unwrap();
+    // let owner_type_ident = {
+    //     let owner_type = find_owner(&field).unwrap();
+    //     syn::Ident::new(&owner_type, proc_macro2::Span::call_site())
+    // };
+    // let fk_field_name = {
+    //     match &field.ident {
+    //         Some(ident) => ident.to_string(),
+    //         None => "".to_string()
+    //     }
+    // };
+    let gen = quote! {
+        impl Schemable for #curr_struct_type {
+            fn collection_name() -> &'static str {
+                #collection_name
+            }
+            fn cascade_delete(&self) {
+                // delete all documents in ALL fk (owned) schemas where value(fk_field_name) = self._id
+                // delete self from self.collection
+                // TODO: have to have some way of getting and storing the collection name of
+                // both the owner and owned_by schemas
+            }
+        };
+    };
+    return gen.into();
+}
+
+// generates a Ident that can be used with the # operator in quote to reference actual Rust defined
+// types
+fn generate_struct_type(type_str: String) -> Ident {
+    syn::Ident::new(&type_str, proc_macro2::Span::call_site())
+}
+
+// Parses the #[collection_name] annotation from the AST of a struct
+fn parse_collection_name(input: &DeriveInput) -> Option<String> {
+    let mut a = None;
+    for attr in &input.attrs {
+        if let Meta::List(ml) = &attr.meta {
+            for seg in &ml.path.segments {
+                if seg.ident.to_string() == SchemaAnnotations::CollectionName.as_str() {
+                    a = Some(ml.tokens.to_string());
+                    break;
+                }
+            }
+        }
+    }
+    a
+}
+
+fn extract_fields_from_schema(input: DeriveInput) -> FieldsNamed {
+    if let Data::Struct(data) = input.data {
+        if let Fields::Named(fields) = data.fields {
+            fields
+        } else {
+            panic!("Could not read any fields from struct")
+        }
+    } else {
+        panic!("Could not read any fields from struct")
+    }
+}
+
+// generic field parser to find annotated fields
+fn find_field_by_annotation<'a>(fields: &'a FieldsNamed, annotation: &str) -> &'a Field {
+    println!("Looking for: {:?}", annotation);
+    for field in fields.named.iter() {
+        if field.attrs.len() > 0 {
+            for attr in &field.attrs {
+                println!("attr - {:#?}", attr);
+                if let Meta::Path(ml) = &attr.meta {
+                    for seg in &ml.segments {
+                        if seg.ident.to_string() == annotation.to_string() {
+                            return field
+                        }
+                    }
+                }
+                if let Meta::List(ml) = &attr.meta {
+                    println!("ml.path.segments - {:#?}", &ml.path.segments);
+                    for seg in &ml.path.segments {
+                        println!("seg.ident.to_string() - {:#?}", seg.ident.to_string());
+                        println!("annotation - {:#?}", annotation);
+                        if seg.ident.to_string() == annotation.to_string() {
+                            return field
+                        }
                     }
                 }
             }
         }
-        a
-    };
-    let collection_name = collection_name.unwrap();
-
-    // Identify the Rust struct associated with the input string (eg. "User" -> User)
-    let curr_struct = input.ident.to_string();
-    let curr_struct_type = syn::Ident::new(&curr_struct, proc_macro2::Span::call_site());
-
-    let fields = extract_fields_from_schema(input);
-    if let Some(fields) = fields {
-        // TODO: handle the case where there is NO owned_by annotation, i.e. data subject
-        // curent approach of just unwrapping causes a panic since we might be unwrapping a None
-        // object when there is no owned_by annotation
-        //
-        // let field = find_fk_field(&fields).unwrap();
-        // let owner_type_ident = {
-        //     let owner_type = find_owner(&field).unwrap();
-        //     syn::Ident::new(&owner_type, proc_macro2::Span::call_site())
-        // };
-        // let fk_field_name = {
-        //     match &field.ident {
-        //         Some(ident) => ident.to_string(),
-        //         None => "".to_string()
-        //     }
-        // };
-        let gen = quote! {
-            impl Schemable for #curr_struct_type {
-                fn collection_name() -> &'static str {
-                    #collection_name
-                }
-                fn cascade_delete(&self) {
-                    // delete all documents in ALL fk (owned) schemas where value(fk_field_name) = self._id
-                    // delete self from self.collection
-                    // TODO: have to have some way of getting and storing the collection name of
-                    // both the owner and owned_by schemas
-                }
-            }
-        };
-        return gen.into();
     }
-
-    TokenStream::new()
+    panic!("Could not find field: {:?}", annotation)
 }
 
-fn extract_fields_from_schema(input: DeriveInput) -> Option<FieldsNamed> {
-    if let Data::Struct(data) = input.data {
-        if let Fields::Named(fields) = data.fields {
-            Some(fields)
-        } else {
-            // compiler error
-            None
+// given a syn::Field object, it returns the string name of the annotated field
+fn find_field_name(field: &Field) -> String {
+    for attr in &field.attrs {
+        if let Meta::Path(mp) = &attr.meta {
+            for seg in &mp.segments {
+                return seg.ident.to_string()
+            }
         }
-    } else {
-        None
+        if let Meta::List(ml) = &attr.meta {
+            return ml.tokens.to_string()
+        }
     }
+    panic!("Error parsing annotated field, {:#?}", field)
 }
 
 /// Given a `FieldsNamed` reference to a set of fields, return an option
