@@ -16,6 +16,7 @@ const DB_NAME: &str = "social";
 
 #[get("/")]
 async fn home() -> impl Responder {
+    println!("Home page req");
     HttpResponse::Ok().body("Welcome to social_rs")
 }
 
@@ -50,8 +51,9 @@ async fn get_user(client: web::Data<Client>, username: web::Path<String>) -> Htt
 }
 /// Adds a new user to the "users" collection in the database.
 #[post("/add_user")]
-async fn add_user(client: web::Data<Client>, form: web::Form<User>) -> HttpResponse {
-    let collection = client.database(DB_NAME).collection("users");
+async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpResponse {
+    println!("Req received at /add-user");
+    let collection = client.database(DB_NAME).collection(User::collection_name());
     println!("Getting user to add: {:?}", form.clone());
     let result = collection.insert_one(form.into_inner(), None).await;
     match result {
@@ -91,6 +93,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(client.clone()))
             .service(add_user)
             .service(get_user)
+            .service(home)
     })
     .bind(("127.0.0.1", 8080))?
     .run()

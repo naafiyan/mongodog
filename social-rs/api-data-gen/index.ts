@@ -66,25 +66,24 @@ async function populateDB() {
         "Content-Type": "application/json",
       },
     });
-    const result = await response.json();
-    console.log(result);
   }
-
-  const add_post_endpoint = `${ENDPOINT_BASE}/add_post`;
-  console.log(add_post_endpoint);
-  // send all the posts
-  console.log("Sending all the posts now");
-  for (let i = 0; i < numPosts; i++) {
-    const response = await fetch(`${ENDPOINT_BASE}/add_post`, {
-      method: "POST",
-      body: JSON.stringify(posts[i]),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    const result = await response.json();
-    console.log(result);
-  }
+  console.log("Done sending users");
+  //
+  // const add_post_endpoint = `${ENDPOINT_BASE}/add_post`;
+  // console.log(add_post_endpoint);
+  // // send all the posts
+  // console.log("Sending all the posts now");
+  // for (let i = 0; i < numPosts; i++) {
+  //   const response = await fetch(`${ENDPOINT_BASE}/add_post`, {
+  //     method: "POST",
+  //     body: JSON.stringify(posts[i]),
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //     },
+  //   });
+  //   const result = await response.json();
+  //   console.log(result);
+  // }
 }
 
 async function get_all_users() {
