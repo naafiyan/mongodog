@@ -5,6 +5,7 @@ use mongowner::Schemable;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Schema)]
 #[collection(users)]
 pub struct User {
+    #[owned_by(User, user_id)]
     pub user_id: mongowner::mongo::bson::uuid::Uuid,
     pub username: String,
     pub first_name: String,

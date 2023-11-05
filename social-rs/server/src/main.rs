@@ -97,4 +97,32 @@ async fn main() -> std::io::Result<()> {
     .bind(("127.0.0.1", 8080))?
     .run()
     .await
+    let test_user_a = User {
+        user_id: Uuid::new_v4(),
+        username: "Alice".to_string(),
+        first_name: "Alice".to_string(),
+        last_name: "Bob".to_string(),
+        age: 2,
+        email: "alice_bob".to_string(),
+    };
+
+    let test_post = Post {
+        text: "Hello this is a post".to_string(),
+        posted_by: test_user_a.user_id,
+        date: "12th March 2023".to_string(),
+    };
+
+    println!("Posts collection name: {:?}", Post::collection_name());
+    Post::cascade_delete(&test_post);
+
+    // enforces that the repository i.e. collection is of type User
+    let collection : Collection<User> = db.collection(User::collection_name());
+    collection.insert_one(&test_user_a, None).await?;
+
+    let _found_user = collection
+        .find_one(doc! { "username": "Alice" }, None)
+        .await?
+        .unwrap();
+
+    Ok(())
 }

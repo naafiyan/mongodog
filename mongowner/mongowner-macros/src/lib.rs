@@ -1,5 +1,6 @@
 extern crate proc_macro;
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream};
+use proc_macro2::{Ident};
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta};
 
@@ -14,7 +15,7 @@ use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta
 pub fn derive_schema(input: TokenStream) -> TokenStream {
     // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
-    println!("input: {:?}", input);
+    // println!("input: {:?}", input);
     // TODO: separate out schema into another macro?
     let collection_name: Option<String> = {
         let mut a = None;
@@ -37,28 +38,42 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_struct_type = syn::Ident::new(&curr_struct, proc_macro2::Span::call_site());
 
     let fields = extract_fields_from_schema(input);
-    if let Some(_fields) = fields {
+    if let Some(fields) = fields {
         // TODO: handle the case where there is NO owned_by annotation, i.e. data subject
         // curent approach of just unwrapping causes a panic since we might be unwrapping a None
         // object when there is no owned_by annotation
-        //
-        // let field = find_fk_field(&fields).unwrap();
-        // let owner_type_ident = {
-        //     let owner_type = find_owner(&field).unwrap();
-        //     syn::Ident::new(&owner_type, proc_macro2::Span::call_site())
-        // };
-        // let fk_field_name = {
-        //     match &field.ident {
-        //         Some(ident) => ident.to_string(),
-        //         None => "".to_string()
-        //     }
-        // };
+        println!("curr_struct: {}", curr_struct);
+        let mut owner_type_ident: Option<Ident> = None;;
+        for field in fields.named.iter() {
+            let fk_field_name = {
+                match &field.ident {
+                    Some(ident) => ident.to_string(),
+                    None => "".to_string()
+                }
+            };
+            println!("fk_field_name: {}", fk_field_name);
+            let owner_types_str = find_owner(&field).unwrap_or_else(|| {
+                "".to_string()
+            });
+            if(owner_types_str != "") {
+                let owner_type_str = owner_types_str.split(',').collect::<Vec<&str>>()[0].to_string();
+                owner_type_ident = Some(syn::Ident::new(&owner_type_str, proc_macro2::Span::call_site()));
+            }  
+        }
+        let owner_type = owner_type_ident.unwrap_or_else(
+            || panic!("No owner type found for {}", curr_struct)
+        );
+        print!("owner_type: {} \n", owner_type);
+        
+
         let gen = quote! {
             impl Schemable for #curr_struct_type {
                 fn collection_name() -> &'static str {
                     #collection_name
                 }
                 fn cascade_delete(&self) {
+                    
+                    println!("safe deleting self");
                     // delete all documents in ALL fk (owned) schemas where value(fk_field_name) = self._id
                     // delete self from self.collection
                     // TODO: have to have some way of getting and storing the collection name of
