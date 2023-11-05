@@ -9,8 +9,7 @@ use mongowner::mongo::Cursor;
 use mongowner::mongo::bson::doc;
 use dotenv::dotenv;
 use uuid::Uuid;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use futures::stream::{StreamExt, TryStreamExt};
+use actix_web::{get, post, web, HttpResponse, HttpServer, App, Responder};
 
 const DB_NAME: &str = "social";
 

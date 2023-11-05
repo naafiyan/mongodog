@@ -9,7 +9,7 @@ pub trait Schemable {
 /// Safe deletion for an object that implements the `Schemable` trait, where "safety"
 /// is defined as the property that deleting a Schemable deletes all of the data it
 /// exclusively owns, i.e. leaves no orphaned data.
-pub fn safe_delete<T: Schemable>(to_delete: &T) -> Result<(), Box<dyn std::error::Error>> {
+pub fn safe_delete<T: Schemable>(_to_delete: &T) -> Result<(), Box<dyn std::error::Error>> {
     // TODO: handle safe deletion
     std::result::Result::Ok(()) // TODO: remove placeholder return
 }

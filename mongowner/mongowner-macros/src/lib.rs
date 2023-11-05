@@ -37,7 +37,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_struct_type = syn::Ident::new(&curr_struct, proc_macro2::Span::call_site());
 
     let fields = extract_fields_from_schema(input);
-    if let Some(fields) = fields {
+    if let Some(_fields) = fields {
         // TODO: handle the case where there is NO owned_by annotation, i.e. data subject
         // curent approach of just unwrapping causes a panic since we might be unwrapping a None
         // object when there is no owned_by annotation
