@@ -7,6 +7,9 @@ use post::Post;
 use mongowner::mongo::{Client, Collection, Database};
 use mongowner::mongo::Cursor;
 use mongowner::mongo::bson::doc;
+use mongowner::mongo::options::ClientOptions;
+use std::env;
+extern crate dotenv;
 use dotenv::dotenv;
 use uuid::Uuid;
 use actix_web::{get, post, web, HttpResponse, HttpServer, App, Responder};
@@ -84,9 +87,15 @@ async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpRespo
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
     // Replace the placeholder with your Atlas connection string
-    let uri = std::env::var("MONGOURI").unwrap_or_else(|_| "mongodb://localhost:27017".into());
-    let client = Client::with_uri_str(uri).await.expect("failed to connect");
-
+    let uri = match env::var("MONGOURI") {
+        Ok(v) => v.to_string(),
+        Err(_) => format!("MONGOURI field must be set"),
+    };
+    let client_options = ClientOptions::parse(uri).await.expect("URI failed to parse");
+    // Set the server_api field of the client_options object to Stable API version 1
+    let client = Client::with_options(client_options).expect("Client failed to initialize");
+    // Send a ping to confirm a successful connection
+    let db = client.database("test1");
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(client.clone()))
@@ -96,33 +105,104 @@ async fn main() -> std::io::Result<()> {
     })
     .bind(("127.0.0.1", 8080))?
     .run()
-    .await
+    .await?;
+
+    
+    // enforces that the repository i.e. collection is of type User
+    let user_collection: Collection<User> = db.collection(User::collection_name());
+    let post_collection: Collection<Post> = db.collection(Post::collection_name());
+
+    // Clean users and posts repositories to begin
+    user_collection.delete_many(doc! {}, None).await.expect("Clearing users failed.");
+    post_collection.delete_many(doc! {}, None).await.expect("Clearing posts failed.");
+
+    // Show we have empty repositories
+    println!("Repository start state (no text if empty):");
+    // let mut user_cursor = user_collection.find(None, None).await?;
+    // while user_cursor.advance().await? {
+    //     println!("{:?}", user_cursor.deserialize_current());
+    // }
+    // let mut post_cusor = post_collection.find(None, None).await?;
+    // while post_cusor.advance().await? {
+    //     println!("{:?}", post_cusor.deserialize_current());
+    // }
+
+    // impl User safe_delete for User {
+    //     fn safe_delete(&self) {
+    //         println!("safe deleting self");
+    //         user_collection.delete_one(doc! { "user_id": self.user_id }, None).await?;
+    //     }
+    // }
+
     let test_user_a = User {
-        user_id: Uuid::new_v4(),
-        username: "Alice".to_string(),
+        user_id: mongowner::mongo::bson::uuid::Uuid::new(),
+        username: "alice".to_string(),
         first_name: "Alice".to_string(),
-        last_name: "Bob".to_string(),
-        age: 2,
-        email: "alice_bob".to_string(),
+        last_name: "of Wonderland".to_string(),
+        age: 0,
+        email: "alice_of_wonderland@brown.edu".to_string(),
     };
 
-    let test_post = Post {
+    let test_user_b = User {
+        user_id: mongowner::mongo::bson::uuid::Uuid::new(),
+        username: "bob".to_string(),
+        first_name: "Bob".to_string(),
+        last_name: "Ross".to_string(),
+        age: 0,
+        email: "bob_ross@brown.edu".to_string(),
+    };
+
+    let post_a = Post {
         text: "Hello this is a post".to_string(),
-        posted_by: test_user_a.user_id,
+        posted_by: test_user_a.user_id.clone(),
         date: "12th March 2023".to_string(),
     };
 
-    println!("Posts collection name: {:?}", Post::collection_name());
-    Post::cascade_delete(&test_post);
+    let post_b = Post {
+        text: "Hello this is another post".to_string(),
+        posted_by: test_user_a.user_id.clone(),
+        date: "12th March 2023".to_string(),
+    };
 
-    // enforces that the repository i.e. collection is of type User
-    let collection : Collection<User> = db.collection(User::collection_name());
-    collection.insert_one(&test_user_a, None).await?;
+    let post_c = Post {
+        text: "Hello this is a third post".to_string(),
+        posted_by: test_user_b.user_id.clone(),
+        date: "12th March 2023".to_string(),
+    };
 
-    let _found_user = collection
-        .find_one(doc! { "username": "Alice" }, None)
-        .await?
-        .unwrap();
+    // add users and posts 
+    user_collection.insert_one(&test_user_a, None).await.expect("Inserting user a failed.");
+    user_collection.insert_one(&test_user_b, None).await.expect("Inserting user b failed.");
+
+    post_collection.insert_one(&post_a, None).await.expect("Inserting post a failed.");
+    post_collection.insert_one(&post_b, None).await.expect("Inserting post b failed.");
+    post_collection.insert_one(&post_c, None).await.expect("Inserting post c failed.");
+
+    println!("New set of users and posts:");
+    let mut user_cursor = user_collection.find(None, None).await.expect("");
+    while user_cursor.advance().await.expect("") {
+        println!("{:?}", user_cursor.deserialize_current().expect(""));
+    }
+    let mut post_cusor = post_collection.find(None, None).await.expect("");
+    while post_cusor.advance().await.expect("") {
+        println!("{:?}", post_cusor.deserialize_current().expect(""));
+    }
+
+
+
+    // println!("Test user a username {:?}", test_user_a.username);
+    // let found_post = post_collection
+    //     .find_one(doc! { f!(text in Post): "Hello this is a post" }, None)
+    //     .await?
+    //     .unwrap();
+    
+    // println!("Found post: {:?}", found_post);
+    // Post::cascade_delete(&test_post);
+    // collection.insert_one(&test_user_a, None).await?;
+    // let _found_user = collection
+    //     .find_one(doc! { "username": "Alice" }, None)
+    //     .await?
+    //     .unwrap();
 
     Ok(())
 }
