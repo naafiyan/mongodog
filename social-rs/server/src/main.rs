@@ -7,6 +7,7 @@ use post::Post;
 use mongowner::mongo::{Client, Collection, Database};
 use mongowner::mongo::Cursor;
 use mongowner::mongo::bson::doc;
+use mongowner::delete::safe_delete;
 use dotenv::dotenv;
 use uuid::Uuid;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
@@ -87,6 +88,18 @@ async fn main() -> std::io::Result<()> {
     // Replace the placeholder with your Atlas connection string
     let uri = std::env::var("MONGOURI").unwrap_or_else(|_| "mongodb://localhost:27017".into());
     let client = Client::with_uri_str(uri).await.expect("failed to connect");
+
+    let user = User {
+        user_id: mongowner::mongo::bson::Uuid::new(),
+        username: "Alice".to_string(),
+        first_name: "Alice".to_string(),
+        last_name: "Bob".to_string(),
+        age: 20,
+        email: "alice_bob@brown.edu".to_string()
+        
+    };
+    println!("Attempting to call safe_delete");
+    safe_delete(&user, &client.database("socials"));
 
     HttpServer::new(move || {
         App::new()
