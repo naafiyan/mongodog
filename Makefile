@@ -20,6 +20,6 @@ clean:
 	cd mongowner && cargo clean
 	cd mongowner/src && rm -f delete_original.rs
 	cd mongowner/src && rm -f delete.rs
-	cp mongowner/delete.rs mongowner/src
+	cp mongowner/original/delete.rs mongowner/src
 
 .PHONY: all clean
