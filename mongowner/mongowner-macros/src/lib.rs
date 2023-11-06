@@ -54,10 +54,25 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let fields = extract_fields_from_schema(input);
     let owned_by_field = find_field_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
-    let index_field = find_field_by_annotation(&fields, SchemaAnnotations::Index.as_str());
+
+    if is_data_subj {
+        if let Some(_) = owned_by_field {
+            panic!("Data subject cannot have owned_by field");
+        }
+    } else {
+        if let None = owned_by_field {
+            panic!("Non data subjects MUST have owned_by field");
+        }
+    }
+
+    let index_field = match find_field_by_annotation(&fields, SchemaAnnotations::Index.as_str()) {
+        Some(res) => res,
+        None => panic!("Error finding index_field")
+    };
 
     // the name of the field annotated by #[owned_by]
-    let owned_by_field_name = find_field_name(owned_by_field);
+    let owned_by_field_name: Option<String> = if is_data_subj { None } else { Some(find_field_name(owned_by_field.unwrap())) };
+
     // the name of the field annotated by #[index]
     let index_field_name = find_field_name(index_field);
     // TODO: actually generate the index on the given field and collection
@@ -122,28 +137,28 @@ fn extract_fields_from_schema(input: DeriveInput) -> FieldsNamed {
 }
 
 // generic field parser to find annotated fields
-fn find_field_by_annotation<'a>(fields: &'a FieldsNamed, annotation: &str) -> &'a Field {
+fn find_field_by_annotation<'a>(fields: &'a FieldsNamed, annotation: &str) -> Option<&'a Field> {
     for field in fields.named.iter() {
         if field.attrs.len() > 0 {
             for attr in &field.attrs {
                 if let Meta::Path(ml) = &attr.meta {
                     for seg in &ml.segments {
                         if seg.ident.to_string() == annotation.to_string() {
-                            return field
+                            return Some(field)
                         }
                     }
                 }
                 if let Meta::List(ml) = &attr.meta {
                     for seg in &ml.path.segments {
                         if seg.ident.to_string() == annotation.to_string() {
-                            return field
+                            return Some(field)
                         }
                     }
                 }
             }
         }
     }
-    panic!("Could not find field: {:?}", annotation)
+    None
 }
 
 // given a syn::Field object, it returns the string name of the annotated field
