@@ -1,4 +1,3 @@
-// Original delete.rs file that gets overwritten when compiling
 use mongodb::Database;
 
 /// The Schemable trait provides the details associated with a data model struct
