@@ -4,6 +4,7 @@ use mongowner::Schemable;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Schema)]
 #[collection(users)]
+#[data_subject]
 pub struct User {
     #[index]
     pub user_id: mongowner::mongo::bson::uuid::Uuid,
