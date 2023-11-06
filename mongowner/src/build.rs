@@ -1,20 +1,10 @@
 extern crate proc_macro;
 
 use quote::quote;
-use syn::Expr;
-use syn::Ident;
 use syn::Item;
 use syn::ItemFn;
-use syn::Token;
-use syn::parse::Parser;
-use syn::token::Fn;
 use std::fs;
-use std::io::prelude::*;
-use std::path::Path;
-use syn::parse_file;
 use syn::parse_str;
-use syn::parse2;
-use proc_macro::TokenStream;
 use syn::File;
 
 // example of a main that does basic File I/O
