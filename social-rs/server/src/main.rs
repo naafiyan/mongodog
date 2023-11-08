@@ -1,9 +1,11 @@
 mod post;
 mod user;
+use std::io::Read;
 use std::fs;
 use std::vec;
 use mongowner::Schemable;
 use user::User;
+use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 use post::Post;
 use mongowner::mongo::{Client, Collection, Database};
 use mongowner::mongo::Cursor;
@@ -87,13 +89,21 @@ async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpRespo
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    // TODO: this should not be explicit code in this file
-    // create a file to store a serialized representation of a data ownership graph
-    let filepath = "graph.json";
-    match fs::write(&filepath, "") {
-        Ok(_) => println!("successfully created graph file"),
-        Err(_) => println!("could not create graph file"),
+    // ----- temp: this should not be explicit code! ----
+    // load the graph from the file and validate it
+    let mut file = fs::File::open("./data/graph.json")?;
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let mut graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
+    {
+        Ok(g) => g,
+        Err(_) => graphmap::GraphMap::new(),
     };
+    let graph = graph.into_graph::<u32>();
+    println!("DEBUG: ownership graph: {:?}", &graph);
+    println!("VALIDATION: graph is not cyclic: {:?}", !is_cyclic_directed(&graph));
+    
+    // --------------------------------------------------
 
     // Replace the placeholder with your Atlas connection string
     let uri = std::env::var("MONGOURI").unwrap_or_else(|_| "mongodb://localhost:27017".into());

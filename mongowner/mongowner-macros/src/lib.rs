@@ -1,7 +1,10 @@
 extern crate proc_macro;
-use std::{fs::File, io::Write};
+use std::{
+    fs::OpenOptions,
+    io::{Read, Seek, SeekFrom, Write},
+};
 
-use petgraph::Graph;
+use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
@@ -86,11 +89,9 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_node_name = curr_struct_type.to_string();
 
     if let Some(name) = owned_by_field_name {
-        // generate a graph using this relation and write it to graph.json
-        let mut graph = Graph::<&str, &str>::new();
-        let owned_by_node = graph.add_node(&name);
-        let curr_node = graph.add_node(&curr_node_name);
-        graph.add_edge(owned_by_node, curr_node, "owned_by");
+        println!("DEBUG: generating graph!");
+        let res = add_edge_to_file(&name, &curr_node_name, "./data/graph.json");
+        println!("DEBUG: res: {:?}", res);
     }
 
     // ------------
@@ -115,13 +116,48 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     return gen.into();
 }
 
-fn write_graph_to_file<T, U>(
-    graph: &Graph<T, U>,
-    filepath: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let mut file = File::open(&filepath)?;
+/// Reads the file containing the serialized graph (or creates this file if it doesn't exist),
+/// and writes a modified graph to the file that also contains an edge between `a` and `b`.
+fn add_edge_to_file(a: &str, b: &str, filepath: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // open the file in question and create it if it doesn't exist
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)?;
+
+    // save starting position of file to seek
+    let saved_position = file.seek(SeekFrom::Current(0))?;
+
+    // read file contents to obtain existing graph
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let mut graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
+    {
+        Ok(g) => g,
+        Err(_) => graphmap::GraphMap::new(),
+    };
+
+    // add the edge to the graph
+    let node_a = if graph.contains_node(a) {
+        a
+    } else {
+        graph.add_node(a)
+    };
+    let node_b = if graph.contains_node(b) {
+        b
+    } else {
+        graph.add_node(b)
+    };
+    graph.add_edge(node_a, node_b, "owned_by");
+
+    // restore the saved position
+    file.seek(SeekFrom::Start(saved_position))?;
+
+    // write the modified graph back into the file
     let serialized_graph = serde_json::to_string(&graph).unwrap();
     file.write_all(serialized_graph.as_bytes())?;
+
     Ok(())
 }
 
