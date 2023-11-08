@@ -1,5 +1,6 @@
 mod post;
 mod user;
+use std::fs;
 use std::vec;
 use mongowner::Schemable;
 use user::User;
@@ -85,6 +86,15 @@ async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpRespo
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
+
+    // TODO: this should not be explicit code in this file
+    // create a file to store a serialized representation of a data ownership graph
+    let filepath = "graph.json";
+    match fs::write(&filepath, "") {
+        Ok(_) => println!("successfully created graph file"),
+        Err(_) => println!("could not create graph file"),
+    };
+
     // Replace the placeholder with your Atlas connection string
     let uri = std::env::var("MONGOURI").unwrap_or_else(|_| "mongodb://localhost:27017".into());
     let client = Client::with_uri_str(uri).await.expect("failed to connect");
