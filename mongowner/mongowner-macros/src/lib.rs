@@ -1,7 +1,14 @@
 extern crate proc_macro;
+use std::{
+    fs::OpenOptions,
+    io::{Read, Seek, SeekFrom, Write},
+};
+
+use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
+use serde_json;
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta};
 
 // enum to represent all the types of schema annotations
@@ -9,7 +16,7 @@ enum SchemaAnnotations {
     OwnedBy,
     Index,
     CollectionName,
-    DataSubject
+    DataSubject,
 }
 
 impl SchemaAnnotations {
@@ -18,10 +25,9 @@ impl SchemaAnnotations {
             SchemaAnnotations::Index => "index",
             SchemaAnnotations::OwnedBy => "owned_by",
             SchemaAnnotations::CollectionName => "collection",
-            SchemaAnnotations::DataSubject => "data_subject"
+            SchemaAnnotations::DataSubject => "data_subject",
         }
     }
-
 }
 
 /// A custom derive macro meant for data model structs that are connected, in some way,
@@ -38,16 +44,18 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
 
-    let collection_name = match parse_header_annotation(&input, SchemaAnnotations::CollectionName.as_str()) {
-        Some(name) => name,
-        None => panic!("All schemas must have collection names")
-    };
+    let collection_name =
+        match parse_header_annotation(&input, SchemaAnnotations::CollectionName.as_str()) {
+            Some(name) => name,
+            None => panic!("All schemas must have collection names"),
+        };
 
     // whether or not the given input model is a data_subject
-    let is_data_subj = match parse_header_annotation(&input, SchemaAnnotations::DataSubject.as_str()) {
-        Some(_) => true,
-        _ => false
-    };
+    let is_data_subj =
+        match parse_header_annotation(&input, SchemaAnnotations::DataSubject.as_str()) {
+            Some(_) => true,
+            _ => false,
+        };
 
     // Identify the Rust struct associated with the input string (eg. "User" -> User)
     let curr_struct_type = generate_struct_type(input.ident.to_string());
@@ -67,16 +75,31 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let index_field = match find_field_by_annotation(&fields, SchemaAnnotations::Index.as_str()) {
         Some(res) => res,
-        None => panic!("Error finding index_field")
+        None => panic!("Error finding index_field"),
     };
 
     // the name of the field annotated by #[owned_by]
-    let owned_by_field_name: Option<String> = if is_data_subj { None } else { Some(find_field_name(owned_by_field.unwrap())) };
+    let owned_by_field_name: Option<String> = if is_data_subj {
+        None
+    } else {
+        Some(find_field_name(owned_by_field.unwrap()))
+    };
+
+    // --- temp ---
+    let curr_node_name = curr_struct_type.to_string();
+
+    if let Some(name) = owned_by_field_name {
+        println!("DEBUG: generating graph!");
+        let res = add_edge_to_file(&name, &curr_node_name, "./data/graph.json");
+        println!("DEBUG: res: {:?}", res);
+    }
+
+    // ------------
 
     // the name of the field annotated by #[index]
     let index_field_name = find_field_name(index_field);
     // TODO: actually generate the index on the given field and collection
-    
+
     let gen = quote! {
         impl Schemable for #curr_struct_type {
             fn collection_name() -> &'static str {
@@ -91,6 +114,51 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         };
     };
     return gen.into();
+}
+
+/// Reads the file containing the serialized graph (or creates this file if it doesn't exist),
+/// and writes a modified graph to the file that also contains an edge between `a` and `b`.
+fn add_edge_to_file(a: &str, b: &str, filepath: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // open the file in question and create it if it doesn't exist
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&filepath)?;
+
+    // save starting position of file to seek
+    let saved_position = file.seek(SeekFrom::Current(0))?;
+
+    // read file contents to obtain existing graph
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let mut graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
+    {
+        Ok(g) => g,
+        Err(_) => graphmap::GraphMap::new(),
+    };
+
+    // add the edge to the graph
+    let node_a = if graph.contains_node(a) {
+        a
+    } else {
+        graph.add_node(a)
+    };
+    let node_b = if graph.contains_node(b) {
+        b
+    } else {
+        graph.add_node(b)
+    };
+    graph.add_edge(node_a, node_b, "owned_by");
+
+    // restore the saved position
+    file.seek(SeekFrom::Start(saved_position))?;
+
+    // write the modified graph back into the file
+    let serialized_graph = serde_json::to_string(&graph).unwrap();
+    file.write_all(serialized_graph.as_bytes())?;
+
+    Ok(())
 }
 
 // generates a Ident that can be used with the # operator in quote to reference actual Rust defined
@@ -144,14 +212,14 @@ fn find_field_by_annotation<'a>(fields: &'a FieldsNamed, annotation: &str) -> Op
                 if let Meta::Path(ml) = &attr.meta {
                     for seg in &ml.segments {
                         if seg.ident.to_string() == annotation.to_string() {
-                            return Some(field)
+                            return Some(field);
                         }
                     }
                 }
                 if let Meta::List(ml) = &attr.meta {
                     for seg in &ml.path.segments {
                         if seg.ident.to_string() == annotation.to_string() {
-                            return Some(field)
+                            return Some(field);
                         }
                     }
                 }
@@ -166,11 +234,11 @@ fn find_field_name(field: &Field) -> String {
     for attr in &field.attrs {
         if let Meta::Path(mp) = &attr.meta {
             for seg in &mp.segments {
-                return seg.ident.to_string()
+                return seg.ident.to_string();
             }
         }
         if let Meta::List(ml) = &attr.meta {
-            return ml.tokens.to_string()
+            return ml.tokens.to_string();
         }
     }
     panic!("Error parsing annotated field, {:#?}", field)
