@@ -14,4 +14,12 @@ mongowner_macros:
 social_client:
 	cd social-rs/frontend
 
+clean:
+	cd social-rs/server && cargo clean
+	cd mongowner/mongowner-macros && cargo clean
+	cd mongowner && cargo clean
+	cd mongowner/src && rm -f delete_original.rs
+	cd mongowner/src && rm -f delete.rs
+	cp mongowner/original/delete.rs mongowner/src
+
 .PHONY: all clean
