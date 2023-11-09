@@ -13,8 +13,7 @@ use mongowner::mongo::bson::doc;
 use mongowner::delete::safe_delete;
 use dotenv::dotenv;
 use uuid::Uuid;
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use futures::stream::{StreamExt, TryStreamExt};
+use actix_web::{get, post, web, HttpResponse, HttpServer, App, Responder};
 
 const DB_NAME: &str = "social";
 

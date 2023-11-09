@@ -61,6 +61,37 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_struct_type = generate_struct_type(input.ident.to_string());
 
     let fields = extract_fields_from_schema(input);
+    if let Some(_fields) = fields {
+        // TODO: handle the case where there is NO owned_by annotation, i.e. data subject
+        // curent approach of just unwrapping causes a panic since we might be unwrapping a None
+        // object when there is no owned_by annotation
+        //
+        // let field = find_fk_field(&fields).unwrap();
+        // let owner_type_ident = {
+        //     let owner_type = find_owner(&field).unwrap();
+        //     syn::Ident::new(&owner_type, proc_macro2::Span::call_site())
+        // };
+        // let fk_field_name = {
+        //     match &field.ident {
+        //         Some(ident) => ident.to_string(),
+        //         None => "".to_string()
+        //     }
+        // };
+        let gen = quote! {
+            impl Schemable for #curr_struct_type {
+                fn collection_name() -> &'static str {
+                    #collection_name
+                }
+                fn cascade_delete(&self) {
+                    // delete all documents in ALL fk (owned) schemas where value(fk_field_name) = self._id
+                    // delete self from self.collection
+                    // TODO: have to have some way of getting and storing the collection name of
+                    // both the owner and owned_by schemas
+                }
+            }
+        };
+        return gen.into();
+    }
     let owned_by_field = find_field_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
 
     if is_data_subj {
