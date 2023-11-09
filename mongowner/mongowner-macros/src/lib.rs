@@ -4,6 +4,7 @@ use std::{
     io::{Read, Seek, SeekFrom, Write},
 };
 
+use mongodb::bson::uuid::Uuid;
 use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
@@ -61,37 +62,6 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_struct_type = generate_struct_type(input.ident.to_string());
 
     let fields = extract_fields_from_schema(input);
-    if let Some(_fields) = fields {
-        // TODO: handle the case where there is NO owned_by annotation, i.e. data subject
-        // curent approach of just unwrapping causes a panic since we might be unwrapping a None
-        // object when there is no owned_by annotation
-        //
-        // let field = find_fk_field(&fields).unwrap();
-        // let owner_type_ident = {
-        //     let owner_type = find_owner(&field).unwrap();
-        //     syn::Ident::new(&owner_type, proc_macro2::Span::call_site())
-        // };
-        // let fk_field_name = {
-        //     match &field.ident {
-        //         Some(ident) => ident.to_string(),
-        //         None => "".to_string()
-        //     }
-        // };
-        let gen = quote! {
-            impl Schemable for #curr_struct_type {
-                fn collection_name() -> &'static str {
-                    #collection_name
-                }
-                fn cascade_delete(&self) {
-                    // delete all documents in ALL fk (owned) schemas where value(fk_field_name) = self._id
-                    // delete self from self.collection
-                    // TODO: have to have some way of getting and storing the collection name of
-                    // both the owner and owned_by schemas
-                }
-            }
-        };
-        return gen.into();
-    }
     let owned_by_field = find_field_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
 
     if is_data_subj {
@@ -116,6 +86,9 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         Some(find_field_name(owned_by_field.unwrap()))
     };
 
+    let index_field_name = find_field_name(index_field);
+    let index_ident = Ident::new(&index_field_name, proc_macro2::Span::call_site());
+    println!("Index field name: {:?}", index_field_name);
     // --- temp ---
     let curr_node_name = curr_struct_type.to_string();
 
@@ -125,11 +98,10 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         println!("DEBUG: res: {:?}", res);
     }
 
-    // ------------
-
-    // the name of the field annotated by #[index]
-    let index_field_name = find_field_name(index_field);
     // TODO: actually generate the index on the given field and collection
+    // TODO: handle non Uuid field type values
+    // TODO: currently having to hardcode Uuid import and type rather than generically determining
+    // it
 
     let gen = quote! {
         impl Schemable for #curr_struct_type {
@@ -141,6 +113,12 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                 // delete self from self.collection
                 // TODO: have to have some way of getting and storing the collection name of
                 // both the owner and owned_by schemas
+            }
+            fn index_name() -> &'static str {
+                #index_field_name
+            }
+            fn index_value(&self) -> Uuid {
+                self.#index_ident
             }
         };
     };
@@ -262,17 +240,11 @@ fn find_field_by_annotation<'a>(fields: &'a FieldsNamed, annotation: &str) -> Op
 
 // given a syn::Field object, it returns the string name of the annotated field
 fn find_field_name(field: &Field) -> String {
-    for attr in &field.attrs {
-        if let Meta::Path(mp) = &attr.meta {
-            for seg in &mp.segments {
-                return seg.ident.to_string();
-            }
-        }
-        if let Meta::List(ml) = &attr.meta {
-            return ml.tokens.to_string();
-        }
+    println!("{:#?}", field);
+    match &field.ident {
+        Some(i) => i.to_string(),
+        None => panic!("Could not find annotated field"),
     }
-    panic!("Error parsing annotated field, {:#?}", field)
 }
 // test will be
 // test safe_delete(DATA_SUBJECT) e.g. User

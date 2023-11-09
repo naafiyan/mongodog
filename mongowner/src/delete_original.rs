@@ -1,3 +1,4 @@
+use mongodb::bson::uuid::Uuid;
 use mongodb::Database;
 
 /// The Schemable trait provides the details associated with a data model struct
@@ -6,6 +7,8 @@ pub trait Schemable {
     fn collection_name() -> &'static str;
     fn cascade_delete(&self); // TODO: add error handling/checking e.g. Result return type to
                               // TODO: determine if cascade_delete is necessary
+    fn index_name() -> &'static str;
+    fn index_value(&self) -> Uuid;
 }
 
 /// Safe deletion for an object that implements the `Schemable` trait, where "safety"
