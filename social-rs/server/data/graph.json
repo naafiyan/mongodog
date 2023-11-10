@@ -1,0 +1,1 @@
+{"nodes":["User","Post","posted_by"],"node_holes":[],"edge_property":"directed","edges":[[0,1,"owned_by"],[2,1,"owned_by"]]}

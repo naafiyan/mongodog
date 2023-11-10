@@ -9,7 +9,7 @@ use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
 use serde_json;
-use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta};
+use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta, TypePath};
 
 // enum to represent all the types of schema annotations
 enum SchemaAnnotations {
@@ -85,6 +85,12 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         Some(find_field_name(owned_by_field.unwrap()))
     };
 
+    let index_field_name = find_field_name(index_field);
+    let index_ident = Ident::new(&index_field_name, proc_macro2::Span::call_site());
+    println!("Index field name: {:?}", index_field_name);
+    let index_type = find_field_type(index_field);
+    let index_type_ident = { index_field.ty.clone() };
+    println!("index_type: {:?}", index_type);
     // --- temp ---
     let curr_node_name = curr_struct_type.to_string();
 
@@ -94,11 +100,10 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         println!("DEBUG: res: {:?}", res);
     }
 
-    // ------------
-
-    // the name of the field annotated by #[index]
-    let index_field_name = find_field_name(index_field);
     // TODO: actually generate the index on the given field and collection
+    // TODO: handle non Uuid field type values
+    // TODO: currently having to hardcode Uuid import and type rather than generically determining
+    // it
 
     let gen = quote! {
         impl Schemable for #curr_struct_type {
@@ -110,6 +115,12 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                 // delete self from self.collection
                 // TODO: have to have some way of getting and storing the collection name of
                 // both the owner and owned_by schemas
+            }
+            fn index_name() -> &'static str {
+                #index_field_name
+            }
+            fn index_value(&self) -> #index_type_ident {
+                self.#index_ident
             }
         };
     };
@@ -191,6 +202,27 @@ fn parse_header_annotation(input: &DeriveInput, annotation: &str) -> Option<Stri
     a
 }
 
+fn find_field_type(field: &Field) -> String {
+    println!("field: {:#?}", field);
+    // TODO: a few cases to handle -
+    // type name is just one path length e.g. Uuid
+    // path length > 1 e.g. mongowner::mongo::bson::uuid::Uuid
+    match &field.ty {
+        syn::Type::Path(p) => p
+            .path
+            .segments
+            .iter()
+            .map(|s| s.ident.to_string())
+            .collect::<Vec<String>>()
+            .join("::"),
+        // syn::Type::Path(p) => match p.path.segments.first() {
+        //     Some(ps) => ps.ident.to_string(),
+        //     None => panic!("No type found for field"),
+        // },
+        _ => panic!("error parsing field!"),
+    }
+}
+
 // extract the fields from a given schema
 fn extract_fields_from_schema(input: DeriveInput) -> FieldsNamed {
     if let Data::Struct(data) = input.data {
@@ -231,17 +263,10 @@ fn find_field_by_annotation<'a>(fields: &'a FieldsNamed, annotation: &str) -> Op
 
 // given a syn::Field object, it returns the string name of the annotated field
 fn find_field_name(field: &Field) -> String {
-    for attr in &field.attrs {
-        if let Meta::Path(mp) = &attr.meta {
-            for seg in &mp.segments {
-                return seg.ident.to_string();
-            }
-        }
-        if let Meta::List(ml) = &attr.meta {
-            return ml.tokens.to_string();
-        }
+    match &field.ident {
+        Some(i) => i.to_string(),
+        None => panic!("Could not find annotated field"),
     }
-    panic!("Error parsing annotated field, {:#?}", field)
 }
 // test will be
 // test safe_delete(DATA_SUBJECT) e.g. User

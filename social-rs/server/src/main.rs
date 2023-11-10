@@ -1,20 +1,15 @@
 mod post;
 mod user;
-use std::io::Read;
-use std::fs;
-use std::vec;
-use mongowner::Schemable;
-use user::User;
-use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
-use post::Post;
-use mongowner::mongo::{Client, Collection, Database};
-use mongowner::mongo::Cursor;
-use mongowner::mongo::bson::doc;
-use mongowner::delete::safe_delete;
-use dotenv::dotenv;
-use uuid::Uuid;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
-use futures::stream::{StreamExt, TryStreamExt};
+use dotenv::dotenv;
+use mongowner::delete::safe_delete;
+use mongowner::mongo::bson::doc;
+use mongowner::mongo::{Client, Collection, Database};
+use mongowner::Schemable;
+use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
+use std::fs;
+use std::io::Read;
+use user::User;
 
 const DB_NAME: &str = "social";
 
@@ -29,7 +24,7 @@ async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
     let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
     let mut cursor = match collection.find(None, None).await {
         mongowner::mongo::error::Result::Ok(cursor) => cursor,
-        mongowner::mongo::error::Result::Err(err) => panic!() // TODO: N - better error handling
+        mongowner::mongo::error::Result::Err(err) => panic!(), // TODO: N - better error handling
     };
     let mut user_vec: Vec<User> = Vec::new();
     // TODO: N - loop through and add users
@@ -101,8 +96,11 @@ async fn main() -> std::io::Result<()> {
     };
     let graph = graph.into_graph::<u32>();
     println!("DEBUG: ownership graph: {:?}", &graph);
-    println!("VALIDATION: graph is not cyclic: {:?}", !is_cyclic_directed(&graph));
-    
+    println!(
+        "VALIDATION: graph is not cyclic: {:?}",
+        !is_cyclic_directed(&graph)
+    );
+
     // --------------------------------------------------
 
     // Replace the placeholder with your Atlas connection string
@@ -115,8 +113,7 @@ async fn main() -> std::io::Result<()> {
         first_name: "Alice".to_string(),
         last_name: "Bob".to_string(),
         age: 20,
-        email: "alice_bob@brown.edu".to_string()
-        
+        email: "alice_bob@brown.edu".to_string(),
     };
     println!("Attempting to call safe_delete");
     safe_delete(&user, &client.database("socials"));
