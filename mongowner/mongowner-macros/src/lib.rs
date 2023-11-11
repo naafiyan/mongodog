@@ -1,9 +1,12 @@
 extern crate proc_macro;
 use std::{
+    env,
     fs::OpenOptions,
     io::{Read, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
 };
 
+use dotenv::dotenv;
 use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
@@ -41,6 +44,7 @@ impl SchemaAnnotations {
 /// - The #[data_subject] macro is used to annotate structs that are data subjects
 #[proc_macro_derive(Schema, attributes(owned_by, collection, index, data_subject))]
 pub fn derive_schema(input: TokenStream) -> TokenStream {
+    dotenv().ok();
     // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -90,14 +94,20 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     if let Some(name) = owned_by_field_name {
         println!("DEBUG: generating graph!");
-        let res = add_edge_to_file(&name, &curr_node_name, "./data/graph.json");
+        let dir = env::var("OUT_DIR").unwrap();
+        let dir_path = Path::new(&dir);
+        let graph_path = dir_path.join("graph.json");
+        println!("DEBUG: graph path is {:?}", &graph_path);
+        // `curr_node_name` is owned by `name`
+        let res = add_edge_to_file(&curr_node_name, &name, &graph_path);
+
         println!("DEBUG: res: {:?}", res);
     }
 
     // ------------
 
     // the name of the field annotated by #[index]
-    let index_field_name = find_field_name(index_field);
+    // let index_field_name = find_field_name(index_field);
     // TODO: actually generate the index on the given field and collection
 
     let gen = quote! {
@@ -118,7 +128,11 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
 /// Reads the file containing the serialized graph (or creates this file if it doesn't exist),
 /// and writes a modified graph to the file that also contains an edge between `a` and `b`.
-fn add_edge_to_file(a: &str, b: &str, filepath: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn add_edge_to_file(
+    a: &str,
+    b: &str,
+    filepath: &PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
     // open the file in question and create it if it doesn't exist
     let mut file = OpenOptions::new()
         .read(true)

@@ -1,8 +1,11 @@
+mod comment;
 mod post;
 mod user;
 use std::io::Read;
 use std::fs;
 use std::vec;
+use std::env;
+use std::path::{Path, PathBuf};
 use mongowner::Schemable;
 use user::User;
 use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
@@ -91,10 +94,13 @@ async fn main() -> std::io::Result<()> {
 
     // ----- temp: this should not be explicit code! ----
     // load the graph from the file and validate it
-    let mut file = fs::File::open("./data/graph.json")?;
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let dir_path = Path::new(&out_dir);
+    let graph_path = dir_path.join("graph.json");
+    let mut file = fs::File::open(graph_path)?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
+    let graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
     {
         Ok(g) => g,
         Err(_) => graphmap::GraphMap::new(),
