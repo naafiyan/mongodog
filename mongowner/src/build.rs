@@ -6,26 +6,11 @@ use syn::ItemFn;
 use std::fs;
 use syn::parse_str;
 use syn::File;
+use std::path::Path;
+// import serde_json and petgraph
+use serde_json;
+use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 
-// example of a main that does basic File I/O
-// fn main() {
-//     // TODO: ensure that this script is run EVERYTIME a Schema object changes
-//     let path = Path::new("src/hello_world.txt");
-//     let display = path.display();
-//     // Open the path in read-only mode, returns `io::Result<File>`
-//     let mut file = match File::open(&path) {
-//         Err(why) => panic!("couldn't open {}: {}", display, why),
-//         Ok(file) => file,
-//     };
-//
-//     // Read the file contents into a string, returns `io::Result<usize>`
-//     let mut s = String::new();
-//     match file.read_to_string(&mut s) {
-//         Err(why) => panic!("couldn't read {}: {}", display, why),
-//         Ok(_) => print!("{} contains:\n{}", display, s),
-//     }
-// }
-//
 
 fn main() {
     // either opens or creates a delete_original.rs file if it doesn't already exist
@@ -40,13 +25,35 @@ fn main() {
         }
     };
 
+    // TODO: ensure that this new script is run EVERYTIME a Schema object changes
+
+    let path = Path::new("social-rs/server/data/graph.json");
+    let display = path.display();
+    let mut file = match fs::File::open(&path) {
+        Err(why) => panic!("couldn't open {}: {}", display, why),
+        Ok(file) => file,
+    };
+    let mut contents = String::new();
+    let mut graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
+    {
+        Ok(g) => g,
+        Err(_) => graphmap::GraphMap::new(),
+    };
+    let graph = graph.into_graph::<u32>();
+    println!("DEBUG: ownership graph: {:?}", &graph);
+    println!(
+        "VALIDATION: graph is not cyclic: {:?}",
+        !is_cyclic_directed(&graph)
+    );
+
+
     // parse the delete_origina.rs into an AST
     let mut ast = parse_str::<File>(&source).unwrap();
 
     // body of the safe_delete function
     let new_body = quote! {
         {
-            println!("hello world from generated safe_delete :)");
+            println!("hello world from generated safe_delete 2 :)");
         }
     };
 

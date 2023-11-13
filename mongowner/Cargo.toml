@@ -8,6 +8,9 @@ build = "./src/build.rs"
 [build-dependencies]
 syn = "1.0"
 quote = "1.0"
+serde_json = "1.0.108"
+serde = "1.0.192"
+petgraph = { version = "0.6.4", features = ["serde-1", "graphmap"] }
 
 
 [dependencies]

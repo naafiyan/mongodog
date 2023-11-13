@@ -58,15 +58,28 @@ async function populateDB() {
   console.log(add_user_endpoint);
   // send all the users
   console.log("Sending all the users now");
-  for (let i = 0; i < numUsers; i++) {
-    const response = await fetch(`${ENDPOINT_BASE}/add_user`, {
-      method: "POST",
-      body: JSON.stringify(users[i]),
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-  }
+  const response = await fetch(`${ENDPOINT_BASE}/add_user`, {
+    method: "POST",
+    body: JSON.stringify(users),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  
+  // for (let i = 0; i < numUsers; i++) {
+  //   const response = await fetch(`${ENDPOINT_BASE}/add_user`, {
+  //     method: "POST",
+  //     body: JSON.stringify(users[i]),
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //     },
+  //   });
+  // }
+
+  // TK can def just build a 'get num users' endpoint but this is fine for now
+  const fetchedUsers = await fetch(`${ENDPOINT_BASE}/get_all_users`);
+  console.log("After population, num users is: " + JSON.stringify(fetchedUsers));
+
   console.log("Done sending users");
   //
   // const add_post_endpoint = `${ENDPOINT_BASE}/add_post`;
