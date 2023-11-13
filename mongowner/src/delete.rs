@@ -1,5 +1,5 @@
 use mongodb::{bson::doc, bson::uuid::Uuid, Collection, Database};
-use petgraph::{graphmap, Directed};
+use petgraph::{graphmap, Directed, Direction};
 use std::path::Path;
 use std::{env, fs, io::Read};
 
@@ -36,15 +36,24 @@ pub async fn safe_delete<T: Schemable>(
     // User
     let curr_struct_name = to_delete.collection_name();
 
-    // Get the immediate neighbors of to_delete, i.e. structs that to_delete owns
-    // Post, Comment
-    let neighbor_structs =
-        graph.neighbors_directed(curr_struct_name, petgraph::Direction::Incoming);
+    // Get the immediate neighboring edges of to_delete to structs that to_delete owns
+    let edges_to_children = graph.edges_directed(curr_struct_name, Direction::Incoming);
 
-    for neighbor in neighbor_structs {
-        let collection = db.collection::<Box<dyn Schemable>>(&neighbor);
-        // let found_neighbors = collection.find(doc! { }, options)
+    for (child_struct, _, index_field) in edges_to_children {
+        let collection = db.collection::<Box<dyn Schemable>>(child_struct);
+        let mut found_cursor = collection
+            .find(doc! {*index_field: to_delete.index_value()}, None)
+            .await?;
+        while found_cursor.advance().await? {
+            let curr_child = found_cursor.deserialize_current()?;
+            safe_delete(curr_child, db).await?;
+        }
     }
+
+    // for neighbor in neighbor_structs {
+    //     let collection = db.collection::<Box<dyn Schemable>>(&neighbor);
+    //     // let found_neighbors = collection.find(doc! { }, options)
+    // }
 
     // For each of these structs s:
     // for neighbor in neighbor_structs {

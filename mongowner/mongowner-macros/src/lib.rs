@@ -11,6 +11,7 @@ use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta, TypePath};
 
@@ -21,6 +22,12 @@ enum SchemaAnnotations {
     CollectionName,
     DataSubject,
 }
+
+// #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+// struct SchemaNode<'a> {
+//     struct_name: &'a str,
+//     index_name: Option<&'a str>,
+// }
 
 impl SchemaAnnotations {
     fn as_str(&self) -> &'static str {
@@ -104,8 +111,19 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         let dir_path = Path::new(&dir);
         let graph_path = dir_path.join("graph.json");
         println!("DEBUG: graph path is {:?}", &graph_path);
+
+        // let owned_node = SchemaNode {
+        //     struct_name: &curr_node_name,
+        //     index_name: None,
+        // };
+
+        // let owner_node = SchemaNode {
+        //     struct_name: &name,
+        //     index_name: Some(&index_field_name),
+        // };
+
         // `curr_node_name` is owned by `name`
-        let res = add_edge_to_file(&curr_node_name, &name, &graph_path);
+        let res = add_edge_to_file(&curr_node_name, &name, &index_field_name, &graph_path);
 
         println!("DEBUG: res: {:?}", res);
     }
@@ -140,8 +158,9 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 /// Reads the file containing the serialized graph (or creates this file if it doesn't exist),
 /// and writes a modified graph to the file that also contains an edge between `a` and `b`.
 fn add_edge_to_file(
-    a: &str,
-    b: &str,
+    owned_node: &str,
+    owner_node: &str,
+    index_name: &str,
     filepath: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // open the file in question and create it if it doesn't exist
@@ -163,18 +182,22 @@ fn add_edge_to_file(
         Err(_) => graphmap::GraphMap::new(),
     };
 
+    // TOOD: update the index_name field if it's None in the graph but available here
+
     // add the edge to the graph
-    let node_a = if graph.contains_node(a) {
-        a
+    let node_a = if graph.contains_node(owned_node) {
+        owned_node
     } else {
-        graph.add_node(a)
+        graph.add_node(owned_node)
     };
-    let node_b = if graph.contains_node(b) {
-        b
+    let node_b = if graph.contains_node(owner_node) {
+        // If this node currently does not have index_name info in the graph,
+        // update the graph's node
+        owner_node
     } else {
-        graph.add_node(b)
+        graph.add_node(owner_node)
     };
-    graph.add_edge(node_a, node_b, "owned_by");
+    graph.add_edge(node_a, node_b, index_name);
 
     // restore the saved position
     file.seek(SeekFrom::Start(saved_position))?;
