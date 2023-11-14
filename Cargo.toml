@@ -1,0 +1,3 @@
+[workspace]
+members = ["mongowner", "mongowner/mongowner-macros", "social-rs/server"]
+
