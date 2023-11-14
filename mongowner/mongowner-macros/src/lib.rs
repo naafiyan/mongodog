@@ -135,7 +135,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let gen = quote! {
         impl Schemable for #curr_struct_type {
-            fn collection_name() -> &'static str {
+            fn collection_name(&self) -> &'static str {
                 #collection_name
             }
             fn cascade_delete(&self) {
@@ -144,7 +144,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                 // TODO: have to have some way of getting and storing the collection name of
                 // both the owner and owned_by schemas
             }
-            fn index_name() -> &'static str {
+            fn index_name(&self) -> &'static str {
                 #index_field_name
             }
             fn index_value(&self) -> #index_type_ident {

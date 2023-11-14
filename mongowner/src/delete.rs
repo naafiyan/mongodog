@@ -1,3 +1,4 @@
+use mongodb::bson::Document;
 use mongodb::{bson::doc, bson::uuid::Uuid, Collection, Database};
 use petgraph::{graphmap, Directed, Direction};
 use std::path::Path;
@@ -19,6 +20,7 @@ pub async fn safe_delete<T: Schemable>(
     to_delete: T,
     db: &Database,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    println!("DEBUG: entered safe_delete");
     // Reference the graph in env::var("OUT_DIR")
     // TODO: move graph-reading code out into a util function
     let out_dir = env::var("OUT_DIR").unwrap();
@@ -39,34 +41,24 @@ pub async fn safe_delete<T: Schemable>(
     // Get the immediate neighboring edges of to_delete to structs that to_delete owns
     let edges_to_children = graph.edges_directed(curr_struct_name, Direction::Incoming);
 
-    for (child_struct, _, index_field) in edges_to_children {
-        let collection = db.collection::<Box<dyn Schemable>>(child_struct);
-        let mut found_cursor = collection
-            .find(doc! {*index_field: to_delete.index_value()}, None)
-            .await?;
-        while found_cursor.advance().await? {
-            let curr_child = found_cursor.deserialize_current()?;
-            safe_delete(curr_child, db).await?;
-        }
-    }
+    let collection = db.collection::<Document>("posts");
+    let one_doc = collection.find(doc! {}, None).await?;
+    let one_doc_deser = one_doc.deserialize_current()?;
+    println!(
+        "DEBUG: post is posted by: {:?}",
+        one_doc_deser.get("posted_by")
+    );
 
-    // for neighbor in neighbor_structs {
-    //     let collection = db.collection::<Box<dyn Schemable>>(&neighbor);
-    //     // let found_neighbors = collection.find(doc! { }, options)
+    // for (child_struct, _, index_field) in edges_to_children {
+    // let collection = db.collection::<Document>(child_struct);
+    // let mut found_cursor = collection
+    //     .find(doc! {*index_field: to_delete.index_value()}, None)
+    //     .await?;
+    // while found_cursor.advance().await? {
+    //     let curr_child = found_cursor.deserialize_current()?;
+    //     safe_delete(curr_child, db).await?;
     // }
 
-    // For each of these structs s:
-    // for neighbor in neighbor_structs {
-    //     // Lookup and delete all elements x of s.collection_name such that to_delete.index_name == x.index_value.
-
-    //     // NOTE: we need to get know the type of the collection that we are parsing for our lookup.
-    //     //   For this purpose, we've used a Box of a dynamic trait.
-    //     db.collection::<Box<dyn Schemable>>(&neighbor)
-    //         .delete_many(
-    //             doc! {to_delete.index_name() : to_delete.index_value()},
-    //             None,
-    //         )
-    //         .await?;
     // }
 
     // Delete to_delete

@@ -16,6 +16,7 @@ use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 use std::fs;
 use std::io::Read;
 use user::User;
+use post::Post;
 
 const DB_NAME: &str = "social";
 
@@ -27,7 +28,7 @@ async fn home() -> impl Responder {
 
 #[get("/get_all_users")]
 async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
-    let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
+    let collection: Collection<User> = client.database(DB_NAME).collection("users");
     let mut cursor = match collection.find(None, None).await {
         mongowner::mongo::error::Result::Ok(cursor) => cursor,
         mongowner::mongo::error::Result::Err(err) => panic!(), // TODO: N - better error handling
@@ -42,7 +43,7 @@ async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
 #[get("/get_user/{username}")]
 async fn get_user(client: web::Data<Client>, username: web::Path<String>) -> HttpResponse {
     let username = username.into_inner();
-    let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
+    let collection: Collection<User> = client.database(DB_NAME).collection("users");
     match collection
         .find_one(doc! { "username": &username }, None)
         .await
@@ -58,7 +59,7 @@ async fn get_user(client: web::Data<Client>, username: web::Path<String>) -> Htt
 #[post("/add_user")]
 async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpResponse {
     println!("Req received at /add-user");
-    let collection = client.database(DB_NAME).collection(User::collection_name());
+    let collection = client.database(DB_NAME).collection("users");
     println!("Getting user to add: {:?}", form.clone());
     let result = collection.insert_one(form.into_inner(), None).await;
     match result {
@@ -124,8 +125,18 @@ async fn main() -> std::io::Result<()> {
         age: 20,
         email: "alice_bob@brown.edu".to_string(),
     };
+    let post = Post {
+        post_id: mongowner::mongo::bson::Uuid::new(),
+        text: "hello world".to_string(),
+        posted_by: user.user_id, 
+        date: "2023-11-08".to_string()
+    };
+
     println!("Attempting to call safe_delete");
-    safe_delete(&user, &client.database("socials"));
+    let posts_coll = client.database("socials").collection::<Post>("posts");
+    posts_coll.insert_one(post, None).await.unwrap();
+    safe_delete(user, &client.database("socials")).await.unwrap();
+    println!("safe-deleted");
 
     HttpServer::new(move || {
         App::new()
