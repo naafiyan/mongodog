@@ -89,43 +89,41 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         None => panic!("Error finding index_field"),
     };
 
-    // the name of the field annotated by #[owned_by]
-    let owned_by_field_name: Option<String> = if is_data_subj {
-        None
-    } else {
-        Some(find_field_name(owned_by_field.unwrap()))
-    };
-
     let index_field_name = find_field_name(index_field);
     let index_ident = Ident::new(&index_field_name, proc_macro2::Span::call_site());
     println!("Index field name: {:?}", index_field_name);
     let index_type = find_field_type(index_field);
     let index_type_ident = { index_field.ty.clone() };
     println!("index_type: {:?}", index_type);
-    // --- temp ---
+
     let curr_node_name = curr_struct_type.to_string();
 
-    if let Some(name) = owned_by_field_name {
-        println!("DEBUG: generating graph!");
-        let dir = env::var("OUT_DIR").unwrap();
-        let dir_path = Path::new(&dir);
-        let graph_path = dir_path.join("graph.json");
-        println!("DEBUG: graph path is {:?}", &graph_path);
+    if let Some(field) = owned_by_field {
+        let _ = &field.attrs.get(0).unwrap().parse_nested_meta(|meta| {
+            let owner_struct_name = meta
+                .path
+                .get_ident()
+                .unwrap_or_else(|| panic!("no owner argument in owned_by annotation"))
+                .to_string();
 
-        // let owned_node = SchemaNode {
-        //     struct_name: &curr_node_name,
-        //     index_name: None,
-        // };
+            println!("DEBUG: generating graph!");
+            let dir = env::var("OUT_DIR").unwrap();
+            let dir_path = Path::new(&dir);
+            let graph_path = dir_path.join("graph.json");
+            println!("DEBUG: graph path is {:?}", &graph_path);
 
-        // let owner_node = SchemaNode {
-        //     struct_name: &name,
-        //     index_name: Some(&index_field_name),
-        // };
+            // `curr_node_name` is owned by `name`
+            let res = add_edge_to_file(
+                &curr_node_name,
+                &owner_struct_name,
+                &index_field_name,
+                &graph_path,
+            );
 
-        // `curr_node_name` is owned by `name`
-        let res = add_edge_to_file(&curr_node_name, &name, &index_field_name, &graph_path);
+            println!("DEBUG: res: {:?}", res);
 
-        println!("DEBUG: res: {:?}", res);
+            Ok(())
+        });
     }
 
     // TODO: actually generate the index on the given field and collection
@@ -191,8 +189,6 @@ fn add_edge_to_file(
         graph.add_node(owned_node)
     };
     let node_b = if graph.contains_node(owner_node) {
-        // If this node currently does not have index_name info in the graph,
-        // update the graph's node
         owner_node
     } else {
         graph.add_node(owner_node)
@@ -240,7 +236,6 @@ fn parse_header_annotation(input: &DeriveInput, annotation: &str) -> Option<Stri
 }
 
 fn find_field_type(field: &Field) -> String {
-    println!("field: {:#?}", field);
     // TODO: a few cases to handle -
     // type name is just one path length e.g. Uuid
     // path length > 1 e.g. mongowner::mongo::bson::uuid::Uuid
