@@ -118,7 +118,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
             }
             let edge_field_name = edge_field_opt.unwrap();
 
-            let owner_struct_name = meta
+            let owner_coll_name = meta
                 .path
                 .get_ident()
                 .unwrap_or_else(|| panic!("no owner argument in owned_by annotation"))
@@ -136,7 +136,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
             println!("DEBUG: graph path is {:?}", &graph_path);
 
             // `curr_node_name` is owned by `name`
-            let res = add_edge_to_file(&curr_node_name, &owner_struct_name, edge, &graph_path);
+            let res = add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path);
 
             println!("DEBUG: res: {:?}", res);
 
@@ -151,6 +151,9 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let gen = quote! {
         impl Schemable for #curr_struct_type {
+            fn struct_name(&self) -> &'static str {
+                #curr_node_name
+            }
             fn collection_name(&self) -> &'static str {
                 #collection_name
             }

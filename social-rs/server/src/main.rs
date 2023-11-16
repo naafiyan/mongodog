@@ -91,25 +91,25 @@ async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpRespo
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    // ----- temp: this should not be explicit code! ----
+    // ----- temp: graph validation code ----
     // load the graph from the file and validate it
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let dir_path = Path::new(&out_dir);
-    let graph_path = dir_path.join("graph.json");
-    let mut file = fs::File::open(graph_path)?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
-    {
-        Ok(g) => g,
-        Err(_) => graphmap::GraphMap::new(),
-    };
-    let graph = graph.into_graph::<u32>();
-    println!("DEBUG: ownership graph: {:?}", &graph);
-    println!(
-        "VALIDATION: graph is not cyclic: {:?}",
-        !is_cyclic_directed(&graph)
-    );
+    // let out_dir = env::var("OUT_DIR").unwrap();
+    // let dir_path = Path::new(&out_dir);
+    // let graph_path = dir_path.join("graph.json");
+    // let mut file = fs::File::open(graph_path)?;
+    // let mut contents = String::new();
+    // file.read_to_string(&mut contents)?;
+    // let graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
+    // {
+    //     Ok(g) => g,
+    //     Err(_) => graphmap::GraphMap::new(),
+    // };
+    // let graph = graph.into_graph::<u32>();
+    // println!("DEBUG: ownership graph: {:?}", &graph);
+    // println!(
+    //     "VALIDATION: graph is not cyclic: {:?}",
+    //     !is_cyclic_directed(&graph)
+    // );
 
     // --------------------------------------------------
 
@@ -135,6 +135,8 @@ async fn main() -> std::io::Result<()> {
     println!("Attempting to call safe_delete");
     let posts_coll = client.database("socials").collection::<Post>("posts");
     posts_coll.insert_one(post, None).await.unwrap();
+    let users_coll = client.database("socials").collection::<User>("users");
+    users_coll.insert_one(&user, None).await.unwrap();
     safe_delete(user, &client.database("socials")).await.unwrap();
     println!("safe-deleted");
 
