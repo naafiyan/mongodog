@@ -29,6 +29,14 @@ enum SchemaAnnotations {
 //     index_name: Option<&'a str>,
 // }
 
+/// Represents an edge between two structs.
+/// Ex. for User, Post, we would have owner_index = user_id, owned_field = posted_by
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+struct OwnEdge<'a> {
+    owner_index: &'a str,
+    owned_field: &'a str,
+}
+
 impl SchemaAnnotations {
     fn as_str(&self) -> &'static str {
         match self {
@@ -72,6 +80,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_struct_type = generate_struct_type(input.ident.to_string());
 
     let fields = extract_fields_from_schema(input);
+    // TODO: there can be multiple owned_by fields; adjust to reflect that
     let owned_by_field = find_field_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
 
     if is_data_subj {
@@ -91,20 +100,34 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let index_field_name = find_field_name(index_field);
     let index_ident = Ident::new(&index_field_name, proc_macro2::Span::call_site());
-    println!("Index field name: {:?}", index_field_name);
-    let index_type = find_field_type(index_field);
+    // let index_type = find_field_type(index_field);
     let index_type_ident = { index_field.ty.clone() };
-    println!("index_type: {:?}", index_type);
 
     let curr_node_name = curr_struct_type.to_string();
 
     if let Some(field) = owned_by_field {
         let _ = &field.attrs.get(0).unwrap().parse_nested_meta(|meta| {
+            let attr_input_stream = meta.input.cursor().token_stream();
+            let edge_field_opt = attr_input_stream
+                .into_iter()
+                .skip(1)
+                .next()
+                .and_then(|t| Some(t.to_string()));
+            if edge_field_opt == None {
+                return Ok(());
+            }
+            let edge_field_name = edge_field_opt.unwrap();
+
             let owner_struct_name = meta
                 .path
                 .get_ident()
                 .unwrap_or_else(|| panic!("no owner argument in owned_by annotation"))
                 .to_string();
+
+            let edge = OwnEdge {
+                owner_index: &edge_field_name,
+                owned_field: &index_field_name,
+            };
 
             println!("DEBUG: generating graph!");
             let dir = env::var("OUT_DIR").unwrap();
@@ -113,12 +136,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
             println!("DEBUG: graph path is {:?}", &graph_path);
 
             // `curr_node_name` is owned by `name`
-            let res = add_edge_to_file(
-                &curr_node_name,
-                &owner_struct_name,
-                &index_field_name,
-                &graph_path,
-            );
+            let res = add_edge_to_file(&curr_node_name, &owner_struct_name, edge, &graph_path);
 
             println!("DEBUG: res: {:?}", res);
 
@@ -158,7 +176,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 fn add_edge_to_file(
     owned_node: &str,
     owner_node: &str,
-    index_name: &str,
+    edge: OwnEdge,
     filepath: &PathBuf,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // open the file in question and create it if it doesn't exist
@@ -174,13 +192,11 @@ fn add_edge_to_file(
     // read file contents to obtain existing graph
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
-    {
-        Ok(g) => g,
-        Err(_) => graphmap::GraphMap::new(),
-    };
-
-    // TOOD: update the index_name field if it's None in the graph but available here
+    let mut graph: graphmap::GraphMap<&str, OwnEdge, Directed> =
+        match serde_json::from_str(&contents) {
+            Ok(g) => g,
+            Err(_) => graphmap::GraphMap::new(),
+        };
 
     // add the edge to the graph
     let node_a = if graph.contains_node(owned_node) {
@@ -193,7 +209,7 @@ fn add_edge_to_file(
     } else {
         graph.add_node(owner_node)
     };
-    graph.add_edge(node_a, node_b, index_name);
+    graph.add_edge(node_a, node_b, edge);
 
     // restore the saved position
     file.seek(SeekFrom::Start(saved_position))?;

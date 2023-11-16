@@ -9,7 +9,7 @@ pub struct Post {
     #[index]
     pub post_id: Uuid,
     pub text: String,
-    #[owned_by(User)]
+    #[owned_by(User, user_id)]
     pub posted_by: Uuid,
     pub date: String,
 }

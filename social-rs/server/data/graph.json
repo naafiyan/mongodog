@@ -1,1 +1,1 @@
-{"nodes":["Comment","Post","User"],"node_holes":[],"edge_property":"directed","edges":[[0,1,"comment_id"],[1,2,"post_id"]]}
+{"nodes":["Comment","Post","User"],"node_holes":[],"edge_property":"directed","edges":[[0,1,{"owner_index":"post_id","owned_field":"comment_id"}],[1,2,{"owner_index":"user_id","owned_field":"post_id"}]]}
