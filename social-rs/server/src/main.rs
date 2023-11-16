@@ -10,6 +10,9 @@ use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 use std::fs;
 use std::io::Read;
 use user::User;
+use post::Post;
+use futures::{TryStreamExt, StreamExt};
+
 
 const DB_NAME: &str = "social";
 
@@ -19,17 +22,35 @@ async fn home() -> impl Responder {
     HttpResponse::Ok().body("Welcome to social_rs")
 }
 
+
+#[get("/clear_users")]
+async fn clear_users(client: web::Data<Client>) -> HttpResponse {
+    let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
+    collection.delete_many(doc! {}, None).await.expect("Clearing users failed.");
+    HttpResponse::Ok().body("Users cleared")
+}
+
 #[get("/get_all_users")]
 async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
+    println!("DEBUG: get_all_users");
     let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
-    let mut cursor = match collection.find(None, None).await {
+    let mut users_cursor = match collection.find(None, None).await {
         mongowner::mongo::error::Result::Ok(cursor) => cursor,
-        mongowner::mongo::error::Result::Err(err) => panic!(), // TODO: N - better error handling
+        mongowner::mongo::error::Result::Err(err) => panic!("Failed in cursor loop"), // TODO: N - better error handling
     };
-    let mut user_vec: Vec<User> = Vec::new();
-    // TODO: N - loop through and add users
 
-    HttpResponse::Ok().json(user_vec)
+    let mut users: Vec<User> = Vec::new();
+    while let Some(doc) = users_cursor.next().await {
+        match doc {
+            Ok(user) => {
+                users.push(user);
+            }
+            Err(e) => {
+                eprintln!("Error fetching document: {}", e);
+            }
+        }
+    }
+    HttpResponse::Ok().json(users)
 }
 
 /// Gets the user with the supplied username.
@@ -123,6 +144,8 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(client.clone()))
             .service(add_user)
             .service(get_user)
+            .service(clear_users)
+            .service(get_all_users)
             .service(home)
     })
     .bind(("127.0.0.1", 8080))?
