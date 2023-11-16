@@ -32,7 +32,6 @@ async fn clear_users(client: web::Data<Client>) -> HttpResponse {
 
 #[get("/get_all_users")]
 async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
-    println!("DEBUG: get_all_users");
     let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
     let mut users_cursor = match collection.find(None, None).await {
         mongowner::mongo::error::Result::Ok(cursor) => cursor,
@@ -46,7 +45,7 @@ async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
                 users.push(user);
             }
             Err(e) => {
-                eprintln!("Error fetching document: {}", e);
+                HttpResponse::InternalServerError().body(e.to_string());
             }
         }
     }
@@ -69,6 +68,8 @@ async fn get_user(client: web::Data<Client>, username: web::Path<String>) -> Htt
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
+
+
 /// Adds a new user to the "users" collection in the database.
 #[post("/add_user")]
 async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpResponse {
@@ -78,6 +79,19 @@ async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpRespo
     let result = collection.insert_one(form.into_inner(), None).await;
     match result {
         Ok(_) => HttpResponse::Ok().body("user added"),
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
+}
+
+/// Adds a new user to the "users" collection in the database.
+#[post("/add_post")]
+async fn add_post(client: web::Data<Client>, form: web::Json<Post>) -> HttpResponse {
+    println!("Req received at /add-post");
+    let collection = client.database(DB_NAME).collection(Post::collection_name());
+    println!("Getting post to add: {:?}", form.clone());
+    let result = collection.insert_one(form.into_inner(), None).await;
+    match result {
+        Ok(_) => HttpResponse::Ok().body("Post added"),
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
@@ -143,6 +157,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .app_data(web::Data::new(client.clone()))
             .service(add_user)
+            .service(add_post)
             .service(get_user)
             .service(clear_users)
             .service(get_all_users)
