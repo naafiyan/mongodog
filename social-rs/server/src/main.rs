@@ -101,6 +101,42 @@ async fn get_user(client: web::Data<Client>, username: web::Path<String>) -> Htt
 }
 
 
+/// Gets posts from a certain user
+#[get("/get_posts_for_user/{username}")]
+async fn get_posts_for_user(client: web::Data<Client>, username: web::Path<String>) -> HttpResponse {
+    let username = username.into_inner();
+    let users_collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
+    match users_collection
+        .find_one(doc! { "username": &username }, None)
+        .await
+    {
+        Ok(Some(user)) => {
+            let posts_collection: Collection<Post> = client.database(DB_NAME).collection(Post::collection_name());
+            let mut posts_cursor = match posts_collection.find(doc! { "posted_by": user.user_id }, None).await {
+                mongowner::mongo::error::Result::Ok(cursor) => cursor,
+                mongowner::mongo::error::Result::Err(err) => panic!("Failed in cursor loop"), // TODO: N - better error handling
+            };
+            let mut posts: Vec<Post> = Vec::new();
+            while let Some(doc) = posts_cursor.next().await {
+                match doc {
+                    Ok(post) => {
+                        posts.push(post);
+                    }
+                    Err(e) => {
+                        HttpResponse::InternalServerError().body(e.to_string());
+                    }
+                }
+            }
+            HttpResponse::Ok().json(posts)
+        },
+        Ok(None) =>  HttpResponse::NotFound().body(format!("No user found with username {username}")),
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string())
+    }
+}
+
+
+
+
 /// Adds a new user to the "users" collection in the database.
 #[post("/add_user")]
 async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpResponse {
@@ -194,6 +230,7 @@ async fn main() -> std::io::Result<()> {
             .service(clear_posts)
             .service(get_all_users)
             .service(get_all_posts)
+            .service(get_posts_for_user)
             .service(home)
     })
     .bind(("127.0.0.1", 8080))?
