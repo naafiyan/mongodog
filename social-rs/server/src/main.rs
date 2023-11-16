@@ -30,6 +30,14 @@ async fn clear_users(client: web::Data<Client>) -> HttpResponse {
     HttpResponse::Ok().body("Users cleared")
 }
 
+
+#[get("/clear_posts")]
+async fn clear_posts(client: web::Data<Client>) -> HttpResponse {
+    let collection: Collection<Post> = client.database(DB_NAME).collection(Post::collection_name());
+    collection.delete_many(doc! {}, None).await.expect("Clearing posts failed.");
+    HttpResponse::Ok().body("Posts cleared")
+}
+
 #[get("/get_all_users")]
 async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
     let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
@@ -51,6 +59,29 @@ async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
     }
     HttpResponse::Ok().json(users)
 }
+
+#[get("/get_all_posts")]
+async fn get_all_posts(client: web::Data<Client>) -> HttpResponse {
+    let collection: Collection<Post> = client.database(DB_NAME).collection(Post::collection_name());
+    let mut posts_cursor = match collection.find(None, None).await {
+        mongowner::mongo::error::Result::Ok(cursor) => cursor,
+        mongowner::mongo::error::Result::Err(err) => panic!("Failed in cursor loop"), // TODO: N - better error handling
+    };
+
+    let mut posts: Vec<Post> = Vec::new();
+    while let Some(doc) = posts_cursor.next().await {
+        match doc {
+            Ok(post) => {
+                posts.push(post);
+            }
+            Err(e) => {
+                HttpResponse::InternalServerError().body(e.to_string());
+            }
+        }
+    }
+    HttpResponse::Ok().json(posts)
+}
+
 
 /// Gets the user with the supplied username.
 #[get("/get_user/{username}")]
@@ -160,7 +191,9 @@ async fn main() -> std::io::Result<()> {
             .service(add_post)
             .service(get_user)
             .service(clear_users)
+            .service(clear_posts)
             .service(get_all_users)
+            .service(get_all_posts)
             .service(home)
     })
     .bind(("127.0.0.1", 8080))?
