@@ -1,18 +1,19 @@
 extern crate proc_macro;
-use std::{
-    env,
-    fs::OpenOptions,
-    io::{Read, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
-};
-
 use dotenv::dotenv;
+use mongodb::{bson::Document, Client, Collection, Database, IndexModel};
 use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
 use serde::{Deserialize, Serialize};
 use serde_json;
+use std::{
+    collections::HashMap,
+    env,
+    fs::OpenOptions,
+    io::{Read, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
+};
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta, TypePath};
 
 // enum to represent all the types of schema annotations
@@ -46,6 +47,41 @@ impl SchemaAnnotations {
             SchemaAnnotations::DataSubject => "data_subject",
         }
     }
+}
+
+// A function that attemps to add an index on the field annotated by #[index]
+// This is okay to run every compile step since the MongoDB createIndex function is idempotent,
+// i.e. creating an index on an existing index will result in nothing happening.
+// Does nothing if MONGODB_URI env var is not set
+// Can set MONGODB_URI in .env file of project that depends on mongowner OR pass in as command line
+// arg
+async fn create_index(coll_name: &str, index_field_name: &str) -> Result<(), &'static str> {
+    // TODO: N - generally should have a way of specifying which db they want to connect to either
+    // through .env or cli args
+    let mongodb_uri: String = {
+        match env::var("MONGOURI") {
+            Ok(uri) => uri,
+            Err(_) => {
+                // TODO: N - parse command lines args if env var not set
+                panic!("Not yet implemented")
+            }
+        }
+    };
+    let client = Client::with_uri_str(mongodb_uri)
+        .await
+        .expect("failed to connect");
+
+    let index = IndexModel::builder()
+        .keys(mongodb::bson::doc! {index_field_name: 1})
+        .build();
+
+    client
+        .database("socials")
+        .collection::<Document>(coll_name)
+        .create_index(index, None)
+        .await
+        .expect("Error connecting to db to create_index");
+    Ok(())
 }
 
 /// A custom derive macro meant for data model structs that are connected, in some way,
@@ -99,6 +135,8 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     };
 
     let index_field_name = find_field_name(index_field);
+    let res = add_index_to_file(&collection_name, &index_field_name);
+
     let index_ident = Ident::new(&index_field_name, proc_macro2::Span::call_site());
     // let index_type = find_field_type(index_field);
     let index_type_ident = { index_field.ty.clone() };
@@ -176,6 +214,46 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         };
     };
     return gen.into();
+}
+
+fn add_index_to_file(
+    collection_name: &str,
+    index_field_name: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let dir = env::var("OUT_DIR").expect("No OUT_DIR specified");
+    let dir_path = Path::new(&dir);
+    let map_path = dir_path.join("index_map.json");
+    let mut file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(&map_path)?;
+
+    let saved_position = file.seek(SeekFrom::Current(0))?;
+
+    // read file contents to obtain existing map
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    let mut map: HashMap<&str, &str> = match serde_json::from_str(&contents) {
+        Ok(g) => g,
+        Err(_) => HashMap::new(),
+    };
+
+    match map.insert(collection_name, index_field_name) {
+        Some(s) => println!("Detected collision in index map with value {:#?}", s),
+        None => println!(
+            "New index map entry with {:#?} : {:#?}",
+            collection_name, index_field_name
+        ),
+    };
+
+    file.seek(SeekFrom::Start(saved_position))?;
+
+    // write the modified graph back into the file
+    let serialized_map = serde_json::to_string(&map).unwrap();
+    file.write_all(serialized_map.as_bytes())?;
+
+    Ok(())
 }
 
 /// Reads the file containing the serialized graph (or creates this file if it doesn't exist),
