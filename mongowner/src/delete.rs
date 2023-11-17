@@ -12,6 +12,7 @@ pub trait Schemable {
     fn collection_name() -> &'static str;
     fn cascade_delete(&self);
     fn index_name() -> &'static str;
+    // TODO: N - make this a generic return type so it supports any type that users have
     fn index_value(&self) -> Uuid;
 }
 

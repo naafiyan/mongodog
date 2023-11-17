@@ -49,41 +49,6 @@ impl SchemaAnnotations {
     }
 }
 
-// A function that attemps to add an index on the field annotated by #[index]
-// This is okay to run every compile step since the MongoDB createIndex function is idempotent,
-// i.e. creating an index on an existing index will result in nothing happening.
-// Does nothing if MONGODB_URI env var is not set
-// Can set MONGODB_URI in .env file of project that depends on mongowner OR pass in as command line
-// arg
-async fn create_index(coll_name: &str, index_field_name: &str) -> Result<(), &'static str> {
-    // TODO: N - generally should have a way of specifying which db they want to connect to either
-    // through .env or cli args
-    let mongodb_uri: String = {
-        match env::var("MONGOURI") {
-            Ok(uri) => uri,
-            Err(_) => {
-                // TODO: N - parse command lines args if env var not set
-                panic!("Not yet implemented")
-            }
-        }
-    };
-    let client = Client::with_uri_str(mongodb_uri)
-        .await
-        .expect("failed to connect");
-
-    let index = IndexModel::builder()
-        .keys(mongodb::bson::doc! {index_field_name: 1})
-        .build();
-
-    client
-        .database("socials")
-        .collection::<Document>(coll_name)
-        .create_index(index, None)
-        .await
-        .expect("Error connecting to db to create_index");
-    Ok(())
-}
-
 /// A custom derive macro meant for data model structs that are connected, in some way,
 /// to a data subject. This produces an implementation of the `Schemable` trait
 /// for this struct.
