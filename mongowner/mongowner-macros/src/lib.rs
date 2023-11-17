@@ -49,41 +49,6 @@ impl SchemaAnnotations {
     }
 }
 
-// A function that attemps to add an index on the field annotated by #[index]
-// This is okay to run every compile step since the MongoDB createIndex function is idempotent,
-// i.e. creating an index on an existing index will result in nothing happening.
-// Does nothing if MONGODB_URI env var is not set
-// Can set MONGODB_URI in .env file of project that depends on mongowner OR pass in as command line
-// arg
-async fn create_index(coll_name: &str, index_field_name: &str) -> Result<(), &'static str> {
-    // TODO: N - generally should have a way of specifying which db they want to connect to either
-    // through .env or cli args
-    let mongodb_uri: String = {
-        match env::var("MONGOURI") {
-            Ok(uri) => uri,
-            Err(_) => {
-                // TODO: N - parse command lines args if env var not set
-                panic!("Not yet implemented")
-            }
-        }
-    };
-    let client = Client::with_uri_str(mongodb_uri)
-        .await
-        .expect("failed to connect");
-
-    let index = IndexModel::builder()
-        .keys(mongodb::bson::doc! {index_field_name: 1})
-        .build();
-
-    client
-        .database("socials")
-        .collection::<Document>(coll_name)
-        .create_index(index, None)
-        .await
-        .expect("Error connecting to db to create_index");
-    Ok(())
-}
-
 /// A custom derive macro meant for data model structs that are connected, in some way,
 /// to a data subject. This produces an implementation of the `Schemable` trait
 /// for this struct.
@@ -144,6 +109,8 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_node_name = curr_struct_type.to_string();
 
     if let Some(field) = owned_by_field {
+        let reference_field = field.ident.as_ref().unwrap().to_string();
+        // TODO: refactor
         let _ = &field
             .attrs
             .get(0)
@@ -168,7 +135,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
                 let edge = OwnEdge {
                     owner_index: &edge_field_name,
-                    owned_field: &index_field_name,
+                    owned_field: &reference_field,
                 };
 
                 println!("DEBUG: generating graph!");
@@ -193,6 +160,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let gen = quote! {
         impl Schemable for #curr_struct_type {
+            type Value = #index_type_ident;
             fn struct_name() -> &'static str {
                 #curr_node_name
             }
@@ -208,7 +176,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
             fn index_name() -> &'static str {
                 #index_field_name
             }
-            fn index_value(&self) -> #index_type_ident {
+            fn index_value(&self) -> Self::Value {
                 self.#index_ident
             }
         };

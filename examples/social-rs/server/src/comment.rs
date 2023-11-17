@@ -9,6 +9,6 @@ pub struct Comment {
     pub comment_id: mongowner::mongo::bson::uuid::Uuid,
     pub text: String,
     #[owned_by(posts, post_id)]
-    pub parent_post: mongowner::mongo::bson::uuid::Uuid,
+    pub parent_post: u32,
     pub date: String,
 }
