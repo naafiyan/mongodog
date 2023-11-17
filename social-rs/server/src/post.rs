@@ -3,7 +3,7 @@ use mongowner::Schemable;
 use mongowner_macros::Schema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Schema)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Schema)]
 #[collection(posts)]
 pub struct Post {
     #[index]

@@ -8,10 +8,10 @@ use std::{env, fs, io::Read};
 /// The `Schemable` trait provides the details associated with a data model struct,
 /// necessary to safely delete it and all the data an instance of this model owns.
 pub trait Schemable {
-    fn struct_name(&self) -> &'static str;
-    fn collection_name(&self) -> &'static str;
+    fn struct_name() -> &'static str;
+    fn collection_name() -> &'static str;
     fn cascade_delete(&self);
-    fn index_name(&self) -> &'static str;
+    fn index_name() -> &'static str;
     fn index_value(&self) -> Uuid;
 }
 
@@ -46,7 +46,7 @@ pub async fn safe_delete<T: Schemable>(
 
     // Look up to_delete.collection_name in the graph to get a starting point
     // User
-    let curr_coll_name = to_delete.collection_name();
+    let curr_coll_name = T::collection_name();
 
     // Get the immediate neighboring edges of to_delete to structs that to_delete owns
     let edges_to_children = graph.edges_directed(&curr_coll_name, Direction::Incoming);
@@ -63,12 +63,7 @@ pub async fn safe_delete<T: Schemable>(
             // safe_delete(curr_child, db).await?;
         }
     }
-
     // Delete to_delete
     // db.collection(curr_struct_name).delete_one(doc! {to_delete: }, options)
-
-    println!("hello world from generated safe_delete :)");
     Ok(())
 }
-
-// use mongodb :: bson :: uuid :: Uuid ; use mongodb :: Database ; # [doc = " The Schemable trait provides the details associated with a data model struct"] # [doc = " necessary to safely delete it and all the data an instance of this model owns."] pub trait Schemable { fn collection_name () -> & 'static str ; fn cascade_delete (& self) ; fn index_name () -> & 'static str ; fn index_value (& self) -> Uuid ; } # [doc = " Safe deletion for an object that implements the `Schemable` trait, where \"safety\""] # [doc = " is defined as the property that deleting a Schemable deletes all of the data it"] # [doc = " exclusively owns, i.e. leaves no orphaned data."] pub fn safe_delete < T : Schemable > (to_delete : & T , db : & Database) { println ! ("hello world from generated safe_delete :)") ; }

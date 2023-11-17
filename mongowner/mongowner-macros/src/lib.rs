@@ -106,42 +106,46 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_node_name = curr_struct_type.to_string();
 
     if let Some(field) = owned_by_field {
-        let _ = &field.attrs.get(0).unwrap().parse_nested_meta(|meta| {
-            let attr_input_stream = meta.input.cursor().token_stream();
-            let edge_field_opt = attr_input_stream
-                .into_iter()
-                .skip(1)
-                .next()
-                .and_then(|t| Some(t.to_string()));
-            if edge_field_opt == None {
-                return Ok(());
-            }
-            let edge_field_name = edge_field_opt.unwrap();
+        let _ = &field
+            .attrs
+            .get(0)
+            .expect("Error getting field.attrs.get(0)")
+            .parse_nested_meta(|meta| {
+                let attr_input_stream = meta.input.cursor().token_stream();
+                let edge_field_opt = attr_input_stream
+                    .into_iter()
+                    .skip(1)
+                    .next()
+                    .and_then(|t| Some(t.to_string()));
+                if edge_field_opt == None {
+                    return Ok(());
+                }
+                let edge_field_name = edge_field_opt.expect("Error getting edge field_name");
 
-            let owner_coll_name = meta
-                .path
-                .get_ident()
-                .unwrap_or_else(|| panic!("no owner argument in owned_by annotation"))
-                .to_string();
+                let owner_coll_name = meta
+                    .path
+                    .get_ident()
+                    .unwrap_or_else(|| panic!("no owner argument in owned_by annotation"))
+                    .to_string();
 
-            let edge = OwnEdge {
-                owner_index: &edge_field_name,
-                owned_field: &index_field_name,
-            };
+                let edge = OwnEdge {
+                    owner_index: &edge_field_name,
+                    owned_field: &index_field_name,
+                };
 
-            println!("DEBUG: generating graph!");
-            let dir = env::var("OUT_DIR").unwrap();
-            let dir_path = Path::new(&dir);
-            let graph_path = dir_path.join("graph.json");
-            println!("DEBUG: graph path is {:?}", &graph_path);
+                println!("DEBUG: generating graph!");
+                let dir = env::var("OUT_DIR").expect("No OUT_DIR specified");
+                let dir_path = Path::new(&dir);
+                let graph_path = dir_path.join("graph.json");
+                println!("DEBUG: graph path is {:?}", &graph_path);
 
-            // `curr_node_name` is owned by `name`
-            let res = add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path);
+                // `curr_node_name` is owned by `name`
+                let res = add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path);
 
-            println!("DEBUG: res: {:?}", res);
+                println!("DEBUG: res: {:?}", res);
 
-            Ok(())
-        });
+                Ok(())
+            });
     }
 
     // TODO: actually generate the index on the given field and collection
@@ -151,10 +155,10 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let gen = quote! {
         impl Schemable for #curr_struct_type {
-            fn struct_name(&self) -> &'static str {
+            fn struct_name() -> &'static str {
                 #curr_node_name
             }
-            fn collection_name(&self) -> &'static str {
+            fn collection_name() -> &'static str {
                 #collection_name
             }
             fn cascade_delete(&self) {
@@ -163,7 +167,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                 // TODO: have to have some way of getting and storing the collection name of
                 // both the owner and owned_by schemas
             }
-            fn index_name(&self) -> &'static str {
+            fn index_name() -> &'static str {
                 #index_field_name
             }
             fn index_value(&self) -> #index_type_ident {
