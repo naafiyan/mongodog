@@ -1,1 +1,1 @@
-{"comments":"comment_id","users":"user_id","comment_id":"comments","user_id":"users","posts":"post_id","post_id":"posts"}
+{"post_id":"posts","comment_id":"comments","users":"user_id","posts":"post_id","user_id":"users","comments":"comment_id"}
