@@ -2,11 +2,7 @@ mod comment;
 mod post;
 mod user;
 
-use std::env;
-use std::path::{Path, PathBuf};
-use std::vec;
-
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder};
 use dotenv::dotenv;
 use futures::{StreamExt, TryStreamExt};
 use mongowner::delete::safe_delete;
@@ -15,8 +11,6 @@ use mongowner::mongo::{Client, Collection, Database};
 use mongowner::Schemable;
 use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 use post::Post;
-use std::fs;
-use std::io::Read;
 use user::User;
 
 const DB_NAME: &str = "social";
@@ -27,7 +21,7 @@ async fn home() -> impl Responder {
     HttpResponse::Ok().body("Welcome to social_rs")
 }
 
-#[get("/clear_users")]
+#[delete("/clear_users")]
 async fn clear_users(client: web::Data<Client>) -> HttpResponse {
     let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
     collection
@@ -37,7 +31,7 @@ async fn clear_users(client: web::Data<Client>) -> HttpResponse {
     HttpResponse::Ok().body("Users cleared")
 }
 
-#[get("/clear_posts")]
+#[delete("/clear_posts")]
 async fn clear_posts(client: web::Data<Client>) -> HttpResponse {
     let collection: Collection<Post> = client.database(DB_NAME).collection(Post::collection_name());
     collection
@@ -222,7 +216,6 @@ async fn main() -> std::io::Result<()> {
 
     // --------------------------------------------------
 
-    // Replace the placeholder with your Atlas connection string
     let uri = std::env::var("MONGOURI").unwrap_or_else(|_| "mongodb://localhost:27017".into());
     let client = Client::with_uri_str(uri).await.expect("failed to connect");
 
