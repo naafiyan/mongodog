@@ -1,18 +1,23 @@
+mod comment;
 mod post;
 mod user;
+
+use std::env;
+use std::path::{Path, PathBuf};
+use std::vec;
+
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use dotenv::dotenv;
+use futures::{StreamExt, TryStreamExt};
 use mongowner::delete::safe_delete;
 use mongowner::mongo::bson::doc;
 use mongowner::mongo::{Client, Collection, Database};
 use mongowner::Schemable;
 use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
+use post::Post;
 use std::fs;
 use std::io::Read;
 use user::User;
-use post::Post;
-use futures::{TryStreamExt, StreamExt};
-
 
 const DB_NAME: &str = "social";
 
@@ -22,19 +27,23 @@ async fn home() -> impl Responder {
     HttpResponse::Ok().body("Welcome to social_rs")
 }
 
-
 #[get("/clear_users")]
 async fn clear_users(client: web::Data<Client>) -> HttpResponse {
     let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
-    collection.delete_many(doc! {}, None).await.expect("Clearing users failed.");
+    collection
+        .delete_many(doc! {}, None)
+        .await
+        .expect("Clearing users failed.");
     HttpResponse::Ok().body("Users cleared")
 }
-
 
 #[get("/clear_posts")]
 async fn clear_posts(client: web::Data<Client>) -> HttpResponse {
     let collection: Collection<Post> = client.database(DB_NAME).collection(Post::collection_name());
-    collection.delete_many(doc! {}, None).await.expect("Clearing posts failed.");
+    collection
+        .delete_many(doc! {}, None)
+        .await
+        .expect("Clearing posts failed.");
     HttpResponse::Ok().body("Posts cleared")
 }
 
@@ -82,12 +91,11 @@ async fn get_all_posts(client: web::Data<Client>) -> HttpResponse {
     HttpResponse::Ok().json(posts)
 }
 
-
 /// Gets the user with the supplied username.
 #[get("/get_user/{username}")]
 async fn get_user(client: web::Data<Client>, username: web::Path<String>) -> HttpResponse {
     let username = username.into_inner();
-    let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
+    let collection: Collection<User> = client.database(DB_NAME).collection("users");
     match collection
         .find_one(doc! { "username": &username }, None)
         .await
@@ -100,19 +108,26 @@ async fn get_user(client: web::Data<Client>, username: web::Path<String>) -> Htt
     }
 }
 
-
 /// Gets posts from a certain user
 #[get("/get_posts_for_user/{username}")]
-async fn get_posts_for_user(client: web::Data<Client>, username: web::Path<String>) -> HttpResponse {
+async fn get_posts_for_user(
+    client: web::Data<Client>,
+    username: web::Path<String>,
+) -> HttpResponse {
     let username = username.into_inner();
-    let users_collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
+    let users_collection: Collection<User> =
+        client.database(DB_NAME).collection(User::collection_name());
     match users_collection
         .find_one(doc! { "username": &username }, None)
         .await
     {
         Ok(Some(user)) => {
-            let posts_collection: Collection<Post> = client.database(DB_NAME).collection(Post::collection_name());
-            let mut posts_cursor = match posts_collection.find(doc! { "posted_by": user.user_id }, None).await {
+            let posts_collection: Collection<Post> =
+                client.database(DB_NAME).collection(Post::collection_name());
+            let mut posts_cursor = match posts_collection
+                .find(doc! { "posted_by": user.user_id }, None)
+                .await
+            {
                 mongowner::mongo::error::Result::Ok(cursor) => cursor,
                 mongowner::mongo::error::Result::Err(err) => panic!("Failed in cursor loop"), // TODO: N - better error handling
             };
@@ -128,20 +143,19 @@ async fn get_posts_for_user(client: web::Data<Client>, username: web::Path<Strin
                 }
             }
             HttpResponse::Ok().json(posts)
-        },
-        Ok(None) =>  HttpResponse::NotFound().body(format!("No user found with username {username}")),
-        Err(err) => HttpResponse::InternalServerError().body(err.to_string())
+        }
+        Ok(None) => {
+            HttpResponse::NotFound().body(format!("No user found with username {username}"))
+        }
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
-
-
-
 
 /// Adds a new user to the "users" collection in the database.
 #[post("/add_user")]
 async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpResponse {
     println!("Req received at /add-user");
-    let collection = client.database(DB_NAME).collection(User::collection_name());
+    let collection = client.database(DB_NAME).collection("users");
     println!("Getting user to add: {:?}", form.clone());
     let result = collection.insert_one(form.into_inner(), None).await;
     match result {
@@ -186,22 +200,25 @@ async fn add_post(client: web::Data<Client>, form: web::Json<Post>) -> HttpRespo
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
-    // ----- temp: this should not be explicit code! ----
+    // ----- temp: graph validation code ----
     // load the graph from the file and validate it
-    let mut file = fs::File::open("./data/graph.json")?;
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let mut graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
-    {
-        Ok(g) => g,
-        Err(_) => graphmap::GraphMap::new(),
-    };
-    let graph = graph.into_graph::<u32>();
-    println!("DEBUG: ownership graph: {:?}", &graph);
-    println!(
-        "VALIDATION: graph is not cyclic: {:?}",
-        !is_cyclic_directed(&graph)
-    );
+    // let out_dir = env::var("OUT_DIR").unwrap();
+    // let dir_path = Path::new(&out_dir);
+    // let graph_path = dir_path.join("graph.json");
+    // let mut file = fs::File::open(graph_path)?;
+    // let mut contents = String::new();
+    // file.read_to_string(&mut contents)?;
+    // let graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
+    // {
+    //     Ok(g) => g,
+    //     Err(_) => graphmap::GraphMap::new(),
+    // };
+    // let graph = graph.into_graph::<u32>();
+    // println!("DEBUG: ownership graph: {:?}", &graph);
+    // println!(
+    //     "VALIDATION: graph is not cyclic: {:?}",
+    //     !is_cyclic_directed(&graph)
+    // );
 
     // --------------------------------------------------
 
@@ -217,8 +234,22 @@ async fn main() -> std::io::Result<()> {
         age: 20,
         email: "alice_bob@brown.edu".to_string(),
     };
+    let post = Post {
+        post_id: mongowner::mongo::bson::Uuid::new(),
+        text: "hello world".to_string(),
+        posted_by: user.user_id,
+        date: "2023-11-08".to_string(),
+    };
+
     println!("Attempting to call safe_delete");
-    safe_delete(&user, &client.database("socials"));
+    let posts_coll = client.database("socials").collection::<Post>("posts");
+    posts_coll.insert_one(post, None).await.unwrap();
+    let users_coll = client.database("socials").collection::<User>("users");
+    users_coll.insert_one(&user, None).await.unwrap();
+    safe_delete(user, &client.database("socials"))
+        .await
+        .unwrap();
+    println!("safe-deleted");
 
     HttpServer::new(move || {
         App::new()

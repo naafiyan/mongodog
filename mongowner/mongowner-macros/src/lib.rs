@@ -1,13 +1,17 @@
 extern crate proc_macro;
 use std::{
+    env,
     fs::OpenOptions,
     io::{Read, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
 };
 
+use dotenv::dotenv;
 use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta, TypePath};
 
@@ -17,6 +21,20 @@ enum SchemaAnnotations {
     Index,
     CollectionName,
     DataSubject,
+}
+
+// #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+// struct SchemaNode<'a> {
+//     struct_name: &'a str,
+//     index_name: Option<&'a str>,
+// }
+
+/// Represents an edge between two structs.
+/// Ex. for User, Post, we would have owner_index = user_id, owned_field = posted_by
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+struct OwnEdge<'a> {
+    owner_index: &'a str,
+    owned_field: &'a str,
 }
 
 impl SchemaAnnotations {
@@ -41,6 +59,7 @@ impl SchemaAnnotations {
 /// - The #[data_subject] macro is used to annotate structs that are data subjects
 #[proc_macro_derive(Schema, attributes(owned_by, collection, index, data_subject))]
 pub fn derive_schema(input: TokenStream) -> TokenStream {
+    dotenv().ok();
     // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -61,6 +80,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_struct_type = generate_struct_type(input.ident.to_string());
 
     let fields = extract_fields_from_schema(input);
+    // TODO: there can be multiple owned_by fields; adjust to reflect that
     let owned_by_field = find_field_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
 
     if is_data_subj {
@@ -78,26 +98,54 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
         None => panic!("Error finding index_field"),
     };
 
-    // the name of the field annotated by #[owned_by]
-    let owned_by_field_name: Option<String> = if is_data_subj {
-        None
-    } else {
-        Some(find_field_name(owned_by_field.unwrap()))
-    };
-
     let index_field_name = find_field_name(index_field);
     let index_ident = Ident::new(&index_field_name, proc_macro2::Span::call_site());
-    println!("Index field name: {:?}", index_field_name);
-    let index_type = find_field_type(index_field);
+    // let index_type = find_field_type(index_field);
     let index_type_ident = { index_field.ty.clone() };
-    println!("index_type: {:?}", index_type);
-    // --- temp ---
+
     let curr_node_name = curr_struct_type.to_string();
 
-    if let Some(name) = owned_by_field_name {
-        println!("DEBUG: generating graph!");
-        let res = add_edge_to_file(&name, &curr_node_name, "./data/graph.json");
-        println!("DEBUG: res: {:?}", res);
+    if let Some(field) = owned_by_field {
+        let _ = &field
+            .attrs
+            .get(0)
+            .expect("Error getting field.attrs.get(0)")
+            .parse_nested_meta(|meta| {
+                let attr_input_stream = meta.input.cursor().token_stream();
+                let edge_field_opt = attr_input_stream
+                    .into_iter()
+                    .skip(1)
+                    .next()
+                    .and_then(|t| Some(t.to_string()));
+                if edge_field_opt == None {
+                    return Ok(());
+                }
+                let edge_field_name = edge_field_opt.expect("Error getting edge field_name");
+
+                let owner_coll_name = meta
+                    .path
+                    .get_ident()
+                    .unwrap_or_else(|| panic!("no owner argument in owned_by annotation"))
+                    .to_string();
+
+                let edge = OwnEdge {
+                    owner_index: &edge_field_name,
+                    owned_field: &index_field_name,
+                };
+
+                println!("DEBUG: generating graph!");
+                let dir = env::var("OUT_DIR").expect("No OUT_DIR specified");
+                let dir_path = Path::new(&dir);
+                let graph_path = dir_path.join("graph.json");
+                println!("DEBUG: graph path is {:?}", &graph_path);
+
+                // `curr_node_name` is owned by `name`
+                let res = add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path);
+
+                println!("DEBUG: res: {:?}", res);
+
+                Ok(())
+            });
     }
 
     // TODO: actually generate the index on the given field and collection
@@ -107,6 +155,9 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let gen = quote! {
         impl Schemable for #curr_struct_type {
+            fn struct_name() -> &'static str {
+                #curr_node_name
+            }
             fn collection_name() -> &'static str {
                 #collection_name
             }
@@ -129,7 +180,12 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
 /// Reads the file containing the serialized graph (or creates this file if it doesn't exist),
 /// and writes a modified graph to the file that also contains an edge between `a` and `b`.
-fn add_edge_to_file(a: &str, b: &str, filepath: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn add_edge_to_file(
+    owned_node: &str,
+    owner_node: &str,
+    edge: OwnEdge,
+    filepath: &PathBuf,
+) -> Result<(), Box<dyn std::error::Error>> {
     // open the file in question and create it if it doesn't exist
     let mut file = OpenOptions::new()
         .read(true)
@@ -143,24 +199,24 @@ fn add_edge_to_file(a: &str, b: &str, filepath: &str) -> Result<(), Box<dyn std:
     // read file contents to obtain existing graph
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
-    let mut graph: graphmap::GraphMap<&str, &str, Directed> = match serde_json::from_str(&contents)
-    {
-        Ok(g) => g,
-        Err(_) => graphmap::GraphMap::new(),
-    };
+    let mut graph: graphmap::GraphMap<&str, OwnEdge, Directed> =
+        match serde_json::from_str(&contents) {
+            Ok(g) => g,
+            Err(_) => graphmap::GraphMap::new(),
+        };
 
     // add the edge to the graph
-    let node_a = if graph.contains_node(a) {
-        a
+    let node_a = if graph.contains_node(owned_node) {
+        owned_node
     } else {
-        graph.add_node(a)
+        graph.add_node(owned_node)
     };
-    let node_b = if graph.contains_node(b) {
-        b
+    let node_b = if graph.contains_node(owner_node) {
+        owner_node
     } else {
-        graph.add_node(b)
+        graph.add_node(owner_node)
     };
-    graph.add_edge(node_a, node_b, "owned_by");
+    graph.add_edge(node_a, node_b, edge);
 
     // restore the saved position
     file.seek(SeekFrom::Start(saved_position))?;
@@ -203,7 +259,6 @@ fn parse_header_annotation(input: &DeriveInput, annotation: &str) -> Option<Stri
 }
 
 fn find_field_type(field: &Field) -> String {
-    println!("field: {:#?}", field);
     // TODO: a few cases to handle -
     // type name is just one path length e.g. Uuid
     // path length > 1 e.g. mongowner::mongo::bson::uuid::Uuid
