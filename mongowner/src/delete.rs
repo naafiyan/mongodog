@@ -8,12 +8,13 @@ use std::{env, fs, io::Read};
 /// The `Schemable` trait provides the details associated with a data model struct,
 /// necessary to safely delete it and all the data an instance of this model owns.
 pub trait Schemable {
+    type Value;
     fn struct_name() -> &'static str;
     fn collection_name() -> &'static str;
     fn cascade_delete(&self);
     fn index_name() -> &'static str;
     // TODO: N - make this a generic return type so it supports any type that users have
-    fn index_value(&self) -> Uuid;
+    fn index_value(&self) -> Self::Value;
 }
 
 /// Represents an edge between two structs.
@@ -30,7 +31,10 @@ struct OwnEdge<'a> {
 pub async fn safe_delete<T: Schemable>(
     to_delete: T,
     db: &Database,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error>>
+where
+    mongodb::bson::Bson: From<<T as Schemable>::Value>,
+{
     println!("DEBUG: entered safe_delete");
     // Reference the graph in env::var("OUT_DIR")
     // TODO: move graph-reading code out into a util function

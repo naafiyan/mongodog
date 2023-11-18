@@ -158,6 +158,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let gen = quote! {
         impl Schemable for #curr_struct_type {
+            type Value = #index_type_ident;
             fn struct_name() -> &'static str {
                 #curr_node_name
             }
@@ -173,7 +174,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
             fn index_name() -> &'static str {
                 #index_field_name
             }
-            fn index_value(&self) -> #index_type_ident {
+            fn index_value(&self) -> Self::Value {
                 self.#index_ident
             }
         };

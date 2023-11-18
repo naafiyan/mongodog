@@ -82,3 +82,48 @@ fn implements_schemable_owned_by() {
         post.index_value().to_string()
     );
 }
+#[test]
+fn different_index_types() {
+    #[derive(Schema)]
+    #[collection(users)]
+    #[data_subject]
+    pub struct User {
+        #[index]
+        pub user_id: &'static str,
+        pub username: String,
+        pub first_name: String,
+        pub last_name: String,
+        pub age: u8,
+        pub email: String,
+    }
+
+    let user = User {
+        user_id: "ABCDEFG",
+        username: "Alice".to_string(),
+        first_name: "Alice".to_string(),
+        last_name: "Bob".to_string(),
+        age: 20,
+        email: "alice_bob@brown.edu".to_string(),
+    };
+
+    assert_eq!("users", User::collection_name());
+    assert_eq!("user_id", User::index_name());
+    assert_eq!("ABCDEFG", user.index_value().to_string());
+    #[derive(Schema)]
+    #[collection(posts)]
+    pub struct Post {
+        #[index]
+        pub post_id: u8,
+        pub text: String,
+        #[owned_by(users, user_id)]
+        pub posted_by: &'static str,
+        pub date: String,
+    }
+    let post = Post {
+        post_id: 0,
+        text: "hello world".to_string(),
+        posted_by: user.user_id,
+        date: "2023-11-08".to_string(),
+    };
+    assert_eq!(0, post.index_value());
+}
