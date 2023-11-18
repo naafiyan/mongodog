@@ -1,6 +1,5 @@
 use mongowner::mongo::bson::uuid::Uuid;
-use mongowner::Schemable;
-use mongowner_macros::Schema;
+use mongowner::{Schema, Schemable};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Schema)]
