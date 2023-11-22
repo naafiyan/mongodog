@@ -234,15 +234,15 @@ async fn main() -> std::io::Result<()> {
         date: "2023-11-08".to_string(),
     };
 
-    println!("Attempting to call safe_delete");
-    let posts_coll = client.database("socials").collection::<Post>("posts");
-    posts_coll.insert_one(post, None).await.unwrap();
-    let users_coll = client.database("socials").collection::<User>("users");
-    users_coll.insert_one(&user, None).await.unwrap();
-    safe_delete(user, &client.database("socials"))
-        .await
-        .unwrap();
-    println!("safe-deleted");
+    // println!("Attempting to call safe_delete");
+    // let posts_coll = client.database("socials").collection::<Post>("posts");
+    // posts_coll.insert_one(post, None).await.unwrap();
+    // let users_coll = client.database("socials").collection::<User>("users");
+    // users_coll.insert_one(&user, None).await.unwrap();
+    // safe_delete(user, &client.database("socials"))
+    //     .await
+    //     .unwrap();
+    // println!("safe-deleted");
 
     HttpServer::new(move || {
         App::new()
