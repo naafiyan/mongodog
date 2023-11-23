@@ -179,25 +179,6 @@ async fn add_post(client: web::Data<Client>, form: web::Json<Post>) -> HttpRespo
     }
 }
 
-// TODO: N - indexes actually ensure that field is unique in MongoDB - could leverage this in
-// mongowner
-// Creates an index on the "username" field to force the values to be unique.
-// async fn create_username_index(client: &Client) {
-//     let options = IndexOptions::builder().unique(true).build();
-//     let model = IndexModel::builder()
-//         .keys(doc! { "username": 1 })
-//         .options(options)
-//         .build();
-//     client
-//         .database(DB_NAME)
-//         .collection::<User>(COLL_NAME)
-//         .create_index(model, None)
-//         .await
-//         .expect("creating an index should succeed");
-// }
-//
-// helper function to connect to MongoDB
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
@@ -228,29 +209,25 @@ async fn main() -> std::io::Result<()> {
     let client = Client::with_uri_str(uri).await.expect("failed to connect");
 
     let user = User {
-        user_id: mongowner::mongo::bson::Uuid::new(),
+        user_id: 2, // temporarily using a u8 here
         username: "Alice".to_string(),
         first_name: "Alice".to_string(),
         last_name: "Bob".to_string(),
         age: 20,
         email: "alice_bob@brown.edu".to_string(),
     };
-    let post = Post {
-        post_id: mongowner::mongo::bson::Uuid::new(),
-        text: "hello world".to_string(),
-        posted_by: user.user_id,
-        date: "2023-11-08".to_string(),
-    };
+    // let post = Post {
+    //     post_id: 4,
+    //     text: "hello world".to_string(),
+    //     posted_by: user.user_id,
+    //     date: "2023-11-08".to_string(),
+    // };
 
     // println!("Attempting to call safe_delete");
     // let posts_coll = client.database("socials").collection::<Post>("posts");
     // posts_coll.insert_one(post, None).await.unwrap();
     // let users_coll = client.database("socials").collection::<User>("users");
     // users_coll.insert_one(&user, None).await.unwrap();
-    // safe_delete(user, &client.database("socials"))
-    //     .await
-    //     .unwrap();
-    // println!("safe-deleted");
 
 
     HttpServer::new(move || {

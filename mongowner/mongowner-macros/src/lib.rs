@@ -24,12 +24,6 @@ enum SchemaAnnotations {
     DataSubject,
 }
 
-// #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-// struct SchemaNode<'a> {
-//     struct_name: &'a str,
-//     index_name: Option<&'a str>,
-// }
-
 /// Represents an edge between two structs.
 /// Ex. for User, Post, we would have owner_index = user_id, owned_field = posted_by
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -109,6 +103,8 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_node_name = curr_struct_type.to_string();
 
     if let Some(field) = owned_by_field {
+        let reference_field = field.ident.as_ref().unwrap().to_string();
+        // TODO: refactor
         let _ = &field
             .attrs
             .get(0)
@@ -133,7 +129,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
                 let edge = OwnEdge {
                     owner_index: &edge_field_name,
-                    owned_field: &index_field_name,
+                    owned_field: &reference_field,
                 };
 
                 println!("DEBUG: generating graph!");

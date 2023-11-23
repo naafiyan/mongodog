@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[data_subject]
 pub struct User {
     #[index]
-    pub user_id: mongowner::mongo::bson::uuid::Uuid,
+    pub user_id: u32,
     pub username: String,
     pub first_name: String,
     pub last_name: String,

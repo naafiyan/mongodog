@@ -16,3 +16,7 @@ mongodb = { version = "2.7.1" }
 petgraph = { version = "0.6.4", features = ["serde-1", "graphmap"] }
 serde_json = "1.0.108"
 serde = "1.0.192"
+futures = "0.3.29"
+async-recursion = "1.0.5"
+tokio = { version = "1", features = ["full"] }
+rand = { version = "0.8" }

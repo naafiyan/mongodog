@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 #[collection(posts)]
 pub struct Post {
     #[index]
-    pub post_id: Uuid,
+    pub post_id: u32,
     pub text: String,
     #[owned_by(users, user_id)]
-    pub posted_by: Uuid,
+    pub posted_by: u32,
     pub date: String,
 }
