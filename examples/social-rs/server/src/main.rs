@@ -3,6 +3,7 @@ mod post;
 mod user;
 
 use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_cors::Cors;
 use dotenv::dotenv;
 use futures::{StreamExt, TryStreamExt};
 use mongowner::delete::safe_delete;
@@ -39,6 +40,13 @@ async fn clear_posts(client: web::Data<Client>) -> HttpResponse {
         .await
         .expect("Clearing posts failed.");
     HttpResponse::Ok().body("Posts cleared")
+}
+
+#[post("/delete_post/{post_id}")]
+async fn delete_post(client: web::Data<Client>,  post_id: web::Path<String>) -> HttpResponse {
+    let post_id = post_id.into_inner();
+    //TK - SAFE DELETE
+    HttpResponse::Ok().body("Post deletion successful")
 }
 
 #[get("/get_all_users")]
@@ -220,24 +228,18 @@ async fn main() -> std::io::Result<()> {
     // posts_coll.insert_one(post, None).await.unwrap();
     // let users_coll = client.database("socials").collection::<User>("users");
     // users_coll.insert_one(&user, None).await.unwrap();
-    safe_delete(user, &client.database("socials"))
-        .await
-        .unwrap();
-    // let posts_coll = client.database("socials").collection::<Post>("posts");
-    // let posts_cursor = posts_coll.find(doc! {}, None).await.unwrap();
-    // let posts_vec: Vec<Post> = posts_cursor.try_collect().await.unwrap();
-    // let users_coll = client.database("socials").collection::<User>("users");
-    // let users_cursor = users_coll.find(doc! {}, None).await.unwrap();
-    // let users_vec: Vec<User> = users_cursor.try_collect().await.unwrap();
-    //
-    // println!("DEBUG: all users: {:?}", &users_vec);
-    // println!("DEBUG: all posts: {:?}", &posts_vec);
-    // posts_coll.delete_many(doc! {}, None).await.unwrap();
-    // let users_coll = client.database("socials").collection::<User>("users");
-    // users_coll.delete_many(doc! {}, None).await.unwrap();
+
 
     HttpServer::new(move || {
+        let cors = Cors::default()
+            .allowed_origin("http://localhost:3000")
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+            .allowed_headers(vec![actix_web::http::header::AUTHORIZATION, actix_web::http::header::ACCEPT])
+            .allowed_header(actix_web::http::header::CONTENT_TYPE)
+            .max_age(3600);
+
         App::new()
+            .wrap(cors)
             .app_data(web::Data::new(client.clone()))
             .service(add_user)
             .service(add_post)
@@ -246,10 +248,12 @@ async fn main() -> std::io::Result<()> {
             .service(clear_posts)
             .service(get_all_users)
             .service(get_all_posts)
+            .service(delete_post)
             .service(get_posts_for_user)
             .service(home)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind("127.0.0.1:8080")?
     .run()
     .await
+
 }
