@@ -19,6 +19,7 @@ type User = {
 };
 
 type Post = {
+  post_id: string;
   text: string;
   posted_by: string;
   date: string;
@@ -27,7 +28,11 @@ type Post = {
 const Page = () => {
     const ENDPOINT_BASE: string = "http://localhost:8080";
     const [posts, setPosts] = useState<Post[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [userDict, setUserDict] = useState({});
     // const [loading, setLoading] = useState(true);
+
+    console.log(users);
 
     async function fetchPosts() {
         try {
@@ -39,29 +44,53 @@ const Page = () => {
         }
       }
       
+    async function fetchUsers() {
+        try {
+            const response = await axios.get(`${ENDPOINT_BASE}/get_all_users`, { 
+            });
+            const newUserDict = {};
+            response.data.forEach((user: User) => {
+                //@ts-ignore 
+                newUserDict[user.user_id] = user.username;
+            });
+            setUserDict({...newUserDict});
+            setUsers(response.data);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        }
+    }
+
+    function getUsername(user_id: string) {
+        // @ts-ignore
+        return userDict[user_id];
+    }
 
     useEffect(() => {
+        fetchUsers();
         fetchPosts();
+        console.log({userDict})
     }, []);
 
-    return <div>hello world
-{posts.map((post) => (
-        <Card key={post.text} className="w-64">
-          <CardHeader>
-            <CardTitle> {post.posted_by}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <CardDescription>
-             {post.text}
-            </CardDescription>
-          </CardContent>
-          <CardFooter>
-            <CardDescription>
-              {post.date}
-            </CardDescription>
-          </CardFooter>
-        </Card>
-))}
+    return <div className="p-4">
+        <div className="flex flex-col gap-4 ">
+    {posts.map((post) => (
+            <Card key={post.post_id} className="w-64">
+            <CardHeader>
+                <CardTitle key={`${post.post_id}-${post.posted_by}`}> {getUsername(post.posted_by)}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <CardDescription>
+                {post.text}
+                </CardDescription>
+            </CardContent>
+            <CardFooter>
+                <CardDescription>
+                {post.date}
+                </CardDescription>
+            </CardFooter>
+            </Card>
+    ))}
+</div>
     </div>;
 }
 
