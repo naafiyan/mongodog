@@ -25,10 +25,7 @@ const Page = () => {
         try {
             //@ts-ignore
           const response = await axios.get(`${ENDPOINT_BASE}/get_all_posts`, { 
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*",
-          }});
+          });
           console.log(response.data);
         } catch (error) {
           console.error('Error fetching data:', error);

@@ -3,6 +3,7 @@ mod post;
 mod user;
 
 use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_cors::Cors;
 use dotenv::dotenv;
 use futures::{StreamExt, TryStreamExt};
 use mongowner::delete::safe_delete;
@@ -244,8 +245,17 @@ async fn main() -> std::io::Result<()> {
     //     .unwrap();
     // println!("safe-deleted");
 
+
     HttpServer::new(move || {
+        let cors = Cors::default()
+            .allowed_origin("http://localhost:3000")
+            .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
+            .allowed_headers(vec![actix_web::http::header::AUTHORIZATION, actix_web::http::header::ACCEPT])
+            .allowed_header(actix_web::http::header::CONTENT_TYPE)
+            .max_age(3600);
+
         App::new()
+            .wrap(cors)
             .app_data(web::Data::new(client.clone()))
             .service(add_user)
             .service(add_post)
@@ -257,7 +267,8 @@ async fn main() -> std::io::Result<()> {
             .service(get_posts_for_user)
             .service(home)
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind("127.0.0.1:8080")?
     .run()
     .await
+
 }
