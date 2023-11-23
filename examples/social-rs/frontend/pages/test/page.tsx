@@ -163,8 +163,11 @@ const Page = () => {
     </div>
         </div>
         </form>
+        <div className="flex gap-4">
+            
         <div className="flex flex-col gap-3 ">
-    {posts.sort((a,b) => dayjs(b.date).diff(dayjs(a.date))).map((post) => (
+            <h2>Posts</h2>
+        {posts.sort((a,b) => dayjs(b.date).diff(dayjs(a.date))).map((post) => (
             <Card key={post.post_id} className="w-64">
             <CardHeader>
                 <div className="flex gap-3 justify-between w-full">
@@ -185,6 +188,32 @@ const Page = () => {
             </CardFooter>
             </Card>
     ))}
+</div>
+
+<div className="flex flex-col gap-3 ">
+            <h2>Users</h2>
+        {users.map((user) => (
+            <Card key={user.user_id} className="w-64">
+            <CardHeader>
+                <div className="flex gap-3 justify-between w-full">
+                <CardTitle key={`${user.user_id}`}>                     {user.username}
+</CardTitle>
+                </div>
+            </CardHeader>
+            
+            <CardContent>
+                <CardDescription>
+                {user.email}
+                </CardDescription>
+            </CardContent>
+            <CardFooter>
+                <CardDescription>
+                {user.first_name} {user.last_name}
+                </CardDescription>
+            </CardFooter>
+            </Card>
+    ))}
+</div>
 </div>
     </div>;
 }
