@@ -42,6 +42,13 @@ async fn clear_posts(client: web::Data<Client>) -> HttpResponse {
     HttpResponse::Ok().body("Posts cleared")
 }
 
+#[post("/delete_post/{post_id}")]
+async fn delete_post(client: web::Data<Client>,  post_id: web::Path<String>) -> HttpResponse {
+    let post_id = post_id.into_inner();
+    //TK - SAFE DELETE
+    HttpResponse::Ok().body("Post deletion successful")
+}
+
 #[get("/get_all_users")]
 async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
     let collection: Collection<User> = client.database(DB_NAME).collection(User::collection_name());
@@ -264,6 +271,7 @@ async fn main() -> std::io::Result<()> {
             .service(clear_posts)
             .service(get_all_users)
             .service(get_all_posts)
+            .service(delete_post)
             .service(get_posts_for_user)
             .service(home)
     })
