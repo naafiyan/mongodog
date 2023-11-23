@@ -104,6 +104,7 @@ const Page = () => {
     }, []);
 
 
+
     useEffect(() => {
         console.log({currentUserId})
     }, [currentUserId])
@@ -126,8 +127,23 @@ const Page = () => {
         })
     }
 
+    function deletePost(post_id: string) {
+        axios.post(`${ENDPOINT_BASE}/delete_post/${post_id}`).then((response) => {
+            console.log(response);
+            toast({
+                title: response.statusText,
+                description: response.data,
+              })
+        }).catch((error) => {
+            console.error(error);
+        })
+    }
+
+
+
     
     return <div className="p-4 flex flex-col gap-4">
+        <Button onClick={() => updateUsersAndPosts()}>Refresh Everything</Button>
         <form onSubmit={handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-3">
         <Textarea {...register('text', {})} placeholder="Post something" />
@@ -151,8 +167,12 @@ const Page = () => {
     {posts.sort((a,b) => dayjs(b.date).diff(dayjs(a.date))).map((post) => (
             <Card key={post.post_id} className="w-64">
             <CardHeader>
+                <div className="flex gap-3 justify-between w-full">
                 <CardTitle key={`${post.post_id}-${post.posted_by}`}> {getUsername(post.posted_by)}</CardTitle>
+                <Button onClick={() => deletePost(post.post_id)}>Delete</Button>
+                </div>
             </CardHeader>
+            
             <CardContent>
                 <CardDescription>
                 {post.text}
