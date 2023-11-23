@@ -36,8 +36,7 @@ pub async fn safe_delete<T: Schemable>(
     db: &Database,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
-    Bson: From<<T as Schemable>::Value>,
-    // T::Value: Into<mongodb::bson::Bson>,
+    mongodb::bson::Bson: From<<T as Schemable>::Value>,
 {
     println!("DEBUG: entered safe_delete");
     // Reference the graph in env::var("OUT_DIR")

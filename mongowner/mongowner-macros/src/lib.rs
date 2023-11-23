@@ -24,12 +24,6 @@ enum SchemaAnnotations {
     DataSubject,
 }
 
-// #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-// struct SchemaNode<'a> {
-//     struct_name: &'a str,
-//     index_name: Option<&'a str>,
-// }
-
 /// Represents an edge between two structs.
 /// Ex. for User, Post, we would have owner_index = user_id, owned_field = posted_by
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
