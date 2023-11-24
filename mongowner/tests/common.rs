@@ -1,5 +1,3 @@
-use std::process::Command;
-
 use mongodb::{Client, Collection, Database};
 use mongowner::{Schema, Schemable};
 use rand::random;
@@ -31,6 +29,8 @@ pub struct Comment {
     pub comment_id: i32,
     #[owned_by(posts, post_id)]
     pub commented_on: i32,
+    #[owned_by(users, user_id)]
+    pub commented_by: i32,
 }
 
 pub async fn init_test_db() -> Result<Database, String> {
@@ -83,6 +83,7 @@ pub async fn insert_comments(
         comments.push(Comment {
             comment_id: n,
             commented_on,
+            commented_by,
         });
     }
     // insert all in one go

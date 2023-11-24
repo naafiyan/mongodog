@@ -1,6 +1,5 @@
 extern crate proc_macro;
 use dotenv::dotenv;
-use mongodb::{bson::Document, Client, Collection, Database, IndexModel};
 use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
@@ -14,7 +13,7 @@ use std::{
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
-use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta, TypePath};
+use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta};
 
 // enum to represent all the types of schema annotations
 enum SchemaAnnotations {
@@ -64,6 +63,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
             None => panic!("All schemas must have collection names"),
         };
 
+    // TODO: N - this might not actually be needed at all
     // whether or not the given input model is a data_subject
     let is_data_subj =
         match parse_header_annotation(&input, SchemaAnnotations::DataSubject.as_str()) {
@@ -75,16 +75,15 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     let curr_struct_type = generate_struct_type(input.ident.to_string());
 
     let fields = extract_fields_from_schema(input);
-    // TODO: there can be multiple owned_by fields; adjust to reflect that
-    let owned_by_field = find_field_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
+    let owned_by_fields = find_fields_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
 
     if is_data_subj {
-        if let Some(_) = owned_by_field {
-            panic!("Data subject cannot have owned_by field");
+        if let Some(_) = owned_by_fields {
+            panic!("Data subject cannot have any owned_by field");
         }
     } else {
-        if let None = owned_by_field {
-            panic!("Non data subjects MUST have owned_by field");
+        if let None = owned_by_fields {
+            panic!("Non data subjects MUST have atleast ONE owned_by field");
         }
     }
 
@@ -94,7 +93,9 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     };
 
     let index_field_name = find_field_name(index_field);
-    let res = add_index_to_file(&collection_name, &index_field_name);
+    if let Err(e) = add_index_to_file(&collection_name, &index_field_name) {
+        panic!("Error {:#?} adding index to index file", e);
+    }
 
     let index_ident = Ident::new(&index_field_name, proc_macro2::Span::call_site());
     // let index_type = find_field_type(index_field);
@@ -102,49 +103,52 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let curr_node_name = curr_struct_type.to_string();
 
-    if let Some(field) = owned_by_field {
-        let reference_field = field.ident.as_ref().unwrap().to_string();
-        // TODO: refactor
-        let _ = &field
-            .attrs
-            .get(0)
-            .expect("Error getting field.attrs.get(0)")
-            .parse_nested_meta(|meta| {
-                let attr_input_stream = meta.input.cursor().token_stream();
-                let edge_field_opt = attr_input_stream
-                    .into_iter()
-                    .skip(1)
-                    .next()
-                    .and_then(|t| Some(t.to_string()));
-                if edge_field_opt == None {
-                    return Ok(());
-                }
-                let edge_field_name = edge_field_opt.expect("Error getting edge field_name");
+    if let Some(fields) = owned_by_fields {
+        for field in fields {
+            let reference_field = field.ident.as_ref().unwrap().to_string();
+            // TODO: refactor
+            let _ = &field
+                .attrs
+                .get(0)
+                .expect("Error getting field.attrs.get(0)")
+                .parse_nested_meta(|meta| {
+                    let attr_input_stream = meta.input.cursor().token_stream();
+                    let edge_field_opt = attr_input_stream
+                        .into_iter()
+                        .skip(1)
+                        .next()
+                        .and_then(|t| Some(t.to_string()));
+                    if edge_field_opt == None {
+                        return Ok(());
+                    }
+                    let edge_field_name = edge_field_opt.expect("Error getting edge field_name");
 
-                let owner_coll_name = meta
-                    .path
-                    .get_ident()
-                    .unwrap_or_else(|| panic!("no owner argument in owned_by annotation"))
-                    .to_string();
+                    let owner_coll_name = meta
+                        .path
+                        .get_ident()
+                        .unwrap_or_else(|| panic!("no owner argument in owned_by annotation"))
+                        .to_string();
 
-                let edge = OwnEdge {
-                    owner_index: &edge_field_name,
-                    owned_field: &reference_field,
-                };
+                    let edge = OwnEdge {
+                        owner_index: &edge_field_name,
+                        owned_field: &reference_field,
+                    };
 
-                println!("DEBUG: generating graph!");
-                let dir = env::var("OUT_DIR").expect("No OUT_DIR specified");
-                let dir_path = Path::new(&dir);
-                let graph_path = dir_path.join("graph.json");
-                println!("DEBUG: graph path is {:?}", &graph_path);
+                    println!("DEBUG: generating graph!");
+                    let dir = env::var("OUT_DIR").expect("No OUT_DIR specified");
+                    let dir_path = Path::new(&dir);
+                    let graph_path = dir_path.join("graph.json");
+                    println!("DEBUG: graph path is {:?}", &graph_path);
 
-                // `curr_node_name` is owned by `name`
-                let res = add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path);
+                    // `curr_node_name` is owned by `name`
+                    let res =
+                        add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path);
 
-                println!("DEBUG: res: {:?}", res);
+                    println!("DEBUG: res: {:?}", res);
 
-                Ok(())
-            });
+                    Ok(())
+                });
+        }
     }
 
     // TODO: actually generate the index on the given field and collection
@@ -298,26 +302,26 @@ fn parse_header_annotation(input: &DeriveInput, annotation: &str) -> Option<Stri
     a
 }
 
-fn find_field_type(field: &Field) -> String {
-    // TODO: a few cases to handle -
-    // type name is just one path length e.g. Uuid
-    // path length > 1 e.g. mongowner::mongo::bson::uuid::Uuid
-    match &field.ty {
-        syn::Type::Path(p) => p
-            .path
-            .segments
-            .iter()
-            .map(|s| s.ident.to_string())
-            .collect::<Vec<String>>()
-            .join("::"),
-        // syn::Type::Path(p) => match p.path.segments.first() {
-        //     Some(ps) => ps.ident.to_string(),
-        //     None => panic!("No type found for field"),
-        // },
-        _ => panic!("error parsing field!"),
-    }
-}
-
+// fn find_field_type(field: &Field) -> String {
+//     // TODO: a few cases to handle -
+//     // type name is just one path length e.g. Uuid
+//     // path length > 1 e.g. mongowner::mongo::bson::uuid::Uuid
+//     match &field.ty {
+//         syn::Type::Path(p) => p
+//             .path
+//             .segments
+//             .iter()
+//             .map(|s| s.ident.to_string())
+//             .collect::<Vec<String>>()
+//             .join("::"),
+//         // syn::Type::Path(p) => match p.path.segments.first() {
+//         //     Some(ps) => ps.ident.to_string(),
+//         //     None => panic!("No type found for field"),
+//         // },
+//         _ => panic!("error parsing field!"),
+//     }
+// }
+//
 // extract the fields from a given schema
 fn extract_fields_from_schema(input: DeriveInput) -> FieldsNamed {
     if let Data::Struct(data) = input.data {
@@ -363,6 +367,39 @@ fn find_field_name(field: &Field) -> String {
         None => panic!("Could not find annotated field"),
     }
 }
+
+// generic field parser to find annotated fields
+fn find_fields_by_annotation<'a>(
+    fields: &'a FieldsNamed,
+    annotation: &str,
+) -> Option<Vec<&'a Field>> {
+    let mut found: Vec<&Field> = Vec::new();
+    for field in fields.named.iter() {
+        if field.attrs.len() > 0 {
+            for attr in &field.attrs {
+                if let Meta::Path(ml) = &attr.meta {
+                    for seg in &ml.segments {
+                        if seg.ident.to_string() == annotation.to_string() {
+                            found.push(field);
+                        }
+                    }
+                }
+                if let Meta::List(ml) = &attr.meta {
+                    for seg in &ml.path.segments {
+                        if seg.ident.to_string() == annotation.to_string() {
+                            found.push(field);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if found.len() > 0 {
+        return Some(found);
+    }
+    None
+}
+
 // test will be
 // test safe_delete(DATA_SUBJECT) e.g. User
 // safe_delete(User) -> extract User._id -> recurse on all things that are owned_by User given the
