@@ -1,6 +1,5 @@
 extern crate proc_macro;
 use dotenv::dotenv;
-use mongodb::{bson::Document, Client, Collection, Database, IndexModel};
 use petgraph::{graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
@@ -14,7 +13,7 @@ use std::{
     io::{Read, Seek, SeekFrom, Write},
     path::{Path, PathBuf},
 };
-use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta, TypePath};
+use syn::{parse_macro_input, Data, DeriveInput, Field, Fields, FieldsNamed, Meta};
 
 // enum to represent all the types of schema annotations
 enum SchemaAnnotations {
@@ -77,7 +76,6 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
 
     let fields = extract_fields_from_schema(input);
     let owned_by_fields = find_fields_by_annotation(&fields, SchemaAnnotations::OwnedBy.as_str());
-    println!("owned_by_fields: {:#?}", owned_by_fields);
 
     if is_data_subj {
         if let Some(_) = owned_by_fields {
@@ -95,7 +93,9 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
     };
 
     let index_field_name = find_field_name(index_field);
-    let res = add_index_to_file(&collection_name, &index_field_name);
+    if let Err(e) = add_index_to_file(&collection_name, &index_field_name) {
+        panic!("Error {:#?} adding index to index file", e);
+    }
 
     let index_ident = Ident::new(&index_field_name, proc_macro2::Span::call_site());
     // let index_type = find_field_type(index_field);
@@ -302,26 +302,26 @@ fn parse_header_annotation(input: &DeriveInput, annotation: &str) -> Option<Stri
     a
 }
 
-fn find_field_type(field: &Field) -> String {
-    // TODO: a few cases to handle -
-    // type name is just one path length e.g. Uuid
-    // path length > 1 e.g. mongowner::mongo::bson::uuid::Uuid
-    match &field.ty {
-        syn::Type::Path(p) => p
-            .path
-            .segments
-            .iter()
-            .map(|s| s.ident.to_string())
-            .collect::<Vec<String>>()
-            .join("::"),
-        // syn::Type::Path(p) => match p.path.segments.first() {
-        //     Some(ps) => ps.ident.to_string(),
-        //     None => panic!("No type found for field"),
-        // },
-        _ => panic!("error parsing field!"),
-    }
-}
-
+// fn find_field_type(field: &Field) -> String {
+//     // TODO: a few cases to handle -
+//     // type name is just one path length e.g. Uuid
+//     // path length > 1 e.g. mongowner::mongo::bson::uuid::Uuid
+//     match &field.ty {
+//         syn::Type::Path(p) => p
+//             .path
+//             .segments
+//             .iter()
+//             .map(|s| s.ident.to_string())
+//             .collect::<Vec<String>>()
+//             .join("::"),
+//         // syn::Type::Path(p) => match p.path.segments.first() {
+//         //     Some(ps) => ps.ident.to_string(),
+//         //     None => panic!("No type found for field"),
+//         // },
+//         _ => panic!("error parsing field!"),
+//     }
+// }
+//
 // extract the fields from a given schema
 fn extract_fields_from_schema(input: DeriveInput) -> FieldsNamed {
     if let Data::Struct(data) = input.data {

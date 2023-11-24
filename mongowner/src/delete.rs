@@ -1,7 +1,7 @@
 use async_recursion::async_recursion;
 use futures::future::try_join_all;
 use futures::stream::TryStreamExt;
-use mongodb::bson::{Bson, Document};
+use mongodb::bson::Document;
 use mongodb::{bson::doc, Database};
 use petgraph::{graphmap::GraphMap, Directed, Direction};
 use serde::{Deserialize, Serialize};
@@ -58,12 +58,10 @@ where
 
     // Get the immediate neighboring edges of to_delete to structs that to_delete owns
     let edges_to_children = graph.edges_directed(&curr_coll_name, Direction::Incoming);
-    let mut index_field = None;
 
     for (child_coll, _, edge) in edges_to_children {
         println!("Edge: {:?}", edge);
         let collection = db.collection::<Document>(child_coll);
-        index_field = Some(edge.owner_index);
         let found_cursor = collection
             .find(doc! { edge.owned_field: to_delete.index_value() }, None)
             .await?;
@@ -97,7 +95,6 @@ async fn safe_delete_document<'a>(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Get edges incoming towards to_delete's collection
     let edges_to_children = graph.edges_directed(&collection_name, Direction::Incoming);
-    let mut owner_idx_field = None;
     let mut owner_id = None;
 
     // Recursively call safe_delete_document on every document that the current
@@ -107,7 +104,6 @@ async fn safe_delete_document<'a>(
         let collection = db.collection::<Document>(child_coll);
         // Get the owner's id if we haven't already
         if owner_id.is_none() {
-            owner_idx_field = Some(edge.owner_index);
             owner_id = to_delete.get(edge.owner_index).unwrap().into();
         }
         let found_cursor = collection
