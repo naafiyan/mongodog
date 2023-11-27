@@ -21,6 +21,7 @@ import { useForm, SubmitHandler } from "react-hook-form"
 import { v4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast"
 import dayjs from 'dayjs';
+import { Input } from "@/components/ui/input"
 
 
 
@@ -41,8 +42,11 @@ type Post = {
 };
 
 type Inputs = {
-    text: string;
-    posted_by: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    age: number;
+    email: string;
   };
 
 const Page = () => {
@@ -51,22 +55,17 @@ const Page = () => {
     const [users, setUsers] = useState<User[]>([]);
     const [userDict, setUserDict] = useState({});
     const [currentUserId, setCurrentUserId] = useState<string>(""); 
+    const [isLoading, setIsLoading] = useState<boolean>(true);
     const {
         register,
         handleSubmit,
+        watch,
+        formState: { errors },
       } = useForm<Inputs>()
     const {toast} = useToast();
 
-    async function fetchPosts() {
-        try {
-          const response = await axios.get(`${ENDPOINT_BASE}/get_all_posts`, { 
-          });
-          setPosts(response.data);
-        } catch (error) {
-          console.error('Error fetching data:', error);
-        }
-      }
-      
+    
+
     async function fetchUsers() {
         try {
             const response = await axios.get(`${ENDPOINT_BASE}/get_all_users`, { 
@@ -88,13 +87,9 @@ const Page = () => {
         return userDict[user_id];
     }
 
-    const updateUsersAndPosts = () => {
-        fetchUsers();
-        fetchPosts();
-    }
 
     useEffect(() => {
-      updateUsersAndPosts();
+      fetchUsers();
     }, []);
 
 
@@ -104,12 +99,14 @@ const Page = () => {
     }, [currentUserId])
 
     const onSubmit: SubmitHandler<Inputs> = (data) => {
-        console.log(data);
-        axios.post(`${ENDPOINT_BASE}/add_post`, {
-            text: data.text,
-            posted_by: Number(currentUserId),
-            date: new Date().toISOString(),
-            post_id: Math.floor(Math.random()  * 100000)
+        const {username, first_name, last_name, email, age} = data;
+        axios.post(`${ENDPOINT_BASE}/add_user`, {
+            username,
+            first_name,
+            last_name,
+            age: Number(age),
+            email,
+            user_id: Math.floor(Math.random() * 100000)
         }).then((response) => {
             console.log(response);
             toast({
@@ -121,65 +118,46 @@ const Page = () => {
         })
     }
 
-    function deletePost(post_id: string) {
-        axios.post(`${ENDPOINT_BASE}/delete_post/${post_id}`).then((response) => {
-            console.log(response);
-            toast({
-                title: response.statusText,
-                description: response.data,
-              })
-        }).catch((error) => {
-            console.error(error);
-        })
-    }
+
 
 
 
     
     return <div className="p-4 flex flex-col gap-4">
-        {/* <Button onClick={() => updateUsersAndPosts()}>Refresh Everything</Button> */}
-        <form onSubmit={handleSubmit(onSubmit)}>
+=        <form onSubmit={handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-3">
-        <Textarea {...register('text', {})} placeholder="Post something" />
-
+        <Input {...register('username', {required: true})} placeholder="Username" />
+        <Input {...register('first_name', {required: true})} placeholder="First Name" />
+        <Input {...register('last_name', {required: true})} placeholder="Last Name" />
+        <Input {...register('email', {required: true})} placeholder="Email" />
+        <Input {...register('age', {required: true})} placeholder="Age" />
         <div className="flex gap-3">
-        <Select onValueChange={(value) => setCurrentUserId(value)}>
-            <SelectTrigger>
-            <SelectValue placeholder="Pick user" asChild>
-                {getUsername(currentUserId)}
-                </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-                {users.map((user) => (
-                    <SelectItem key={user.user_id} value={user.user_id}>{user.username}</SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
-        <Button variant="outline" type="submit">Post</Button>
+       
+        <Button variant="outline" type="submit">Create User</Button>
     </div>
         </div>
         </form>
         <div className="flex gap-4">
-            
-        <div className="flex flex-col gap-3 ">
-            <h2>Posts</h2>
-        {posts.sort((a,b) => dayjs(b.date).diff(dayjs(a.date))).map((post) => (
-            <Card key={post.post_id} className="w-64">
+
+<div className="flex flex-col gap-3 ">
+            <h2>Users</h2>
+        {users.map((user) => (
+            <Card key={user.user_id} className="w-64">
             <CardHeader>
                 <div className="flex gap-3 justify-between w-full">
-                <CardTitle key={`${post.post_id}-${post.posted_by}`}> {getUsername(post.posted_by)}</CardTitle>
-                <Button onClick={() => deletePost(post.post_id)}>Delete</Button>
+                <CardTitle key={`${user.user_id}`}>                     {user.username}
+</CardTitle>
                 </div>
             </CardHeader>
             
             <CardContent>
                 <CardDescription>
-                {post.text}
+                {user.email}
                 </CardDescription>
             </CardContent>
             <CardFooter>
                 <CardDescription>
-                {post.date}
+                {user.first_name} {user.last_name}
                 </CardDescription>
             </CardFooter>
             </Card>
