@@ -8,19 +8,8 @@ import {
     CardHeader,
     CardTitle,
   } from "@/components/ui/card"
-    import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-    } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { useForm, SubmitHandler } from "react-hook-form"
-import { v4 } from 'uuid';
-import { useToast } from "@/components/ui/use-toast"
-import dayjs from 'dayjs';
 import { Input } from "@/components/ui/input"
 
 
@@ -51,19 +40,12 @@ type Inputs = {
 
 const Page = () => {
     const ENDPOINT_BASE: string = "http://localhost:8080";
-    const [posts, setPosts] = useState<Post[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [userDict, setUserDict] = useState({});
-    const [currentUserId, setCurrentUserId] = useState<string>(""); 
-    const [isLoading, setIsLoading] = useState<boolean>(true);
     const {
         register,
         handleSubmit,
-        watch,
-        formState: { errors },
       } = useForm<Inputs>()
-    const {toast} = useToast();
-
     
 
     async function fetchUsers() {
@@ -92,12 +74,6 @@ const Page = () => {
       fetchUsers();
     }, []);
 
-
-
-    useEffect(() => {
-        console.log({currentUserId})
-    }, [currentUserId])
-
     const onSubmit: SubmitHandler<Inputs> = (data) => {
         const {username, first_name, last_name, email, age} = data;
         axios.post(`${ENDPOINT_BASE}/add_user`, {
@@ -109,10 +85,6 @@ const Page = () => {
             user_id: Math.floor(Math.random() * 100000)
         }).then((response) => {
             console.log(response);
-            toast({
-                title: response.statusText,
-                description: response.data,
-              })
         }).catch((error) => {
             console.error(error);
         })
@@ -124,7 +96,7 @@ const Page = () => {
 
     
     return <div className="p-4 flex flex-col gap-4">
-=        <form onSubmit={handleSubmit(onSubmit)}>
+              <form onSubmit={handleSubmit(onSubmit)}>
         <div className="flex flex-col gap-3">
         <Input {...register('username', {required: true})} placeholder="Username" />
         <Input {...register('first_name', {required: true})} placeholder="First Name" />
