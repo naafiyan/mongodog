@@ -39,6 +39,13 @@ type Post = {
   date: string;
 };
 
+type Comment = {
+    comment_id: string;
+    text: string;
+    parent_post: string;
+    date: string;
+}
+
 type Inputs = {
     text: string;
     posted_by: string;
@@ -49,6 +56,7 @@ const Page = () => {
     const [posts, setPosts] = useState<Post[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [userDict, setUserDict] = useState({});
+    const [comments, setComments] = useState<Comment[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string>(""); 
     const {
         register,
@@ -82,6 +90,17 @@ const Page = () => {
         }
     }
 
+         
+    async function fetchComments() {
+        try {
+            const response = await axios.get(`${ENDPOINT_BASE}/get_all_comments`, { 
+            });
+            setComments(response.data);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        }
+    }
+
     function getUsername(user_id: string) {
         // @ts-ignore
         return userDict[user_id];
@@ -90,6 +109,7 @@ const Page = () => {
     const updateUsersAndPosts = () => {
         fetchUsers();
         fetchPosts();
+        fetchComments();
     }
 
     useEffect(() => {
@@ -169,6 +189,13 @@ const Page = () => {
                 <CardTitle key={`${post.post_id}-${post.posted_by}`}> {getUsername(post.posted_by)}</CardTitle>
                 {post.post_id}
                 <Button onClick={() => deletePost(post.post_id)}>Delete</Button>
+                <div className="flex gap-4 justify-between w-half">
+                    {comments.filter((comment) => comment.parent_post === post.post_id).map((comment) => (
+                        <div className="flex gap-5 border-solid border-2">
+                            <div>{comment.text}</div>
+                            <div>{comment.date}</div>
+                            </div>))}
+                </div>
                 </div>
             </CardHeader>
             
