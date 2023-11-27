@@ -45,7 +45,19 @@ async fn clear_posts(client: web::Data<Client>) -> HttpResponse {
 #[post("/delete_post/{post_id}")]
 async fn delete_post(client: web::Data<Client>,  post_id: web::Path<String>) -> HttpResponse {
     let post_id = post_id.into_inner();
-    //TK - SAFE DELETE
+    let database = client.database(DB_NAME);
+    let collection: Collection<Post> = database.collection(Post::collection_name());
+    let post = match collection
+        .find_one(doc! { "post_id": post_id.clone().to_string().parse::<i32>().unwrap() }, None)
+        .await
+    {
+        Ok(Some(post)) => post,
+        Ok(None) => {
+            return HttpResponse::NotFound().body(format!("No post found with post_id {post_id}"))
+        }
+        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+    };
+    let result = safe_delete(post, &database).await;
     HttpResponse::Ok().body("Post deletion successful")
 }
 

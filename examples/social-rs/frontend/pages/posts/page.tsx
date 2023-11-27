@@ -167,6 +167,7 @@ const Page = () => {
             <CardHeader>
                 <div className="flex gap-3 justify-between w-full">
                 <CardTitle key={`${post.post_id}-${post.posted_by}`}> {getUsername(post.posted_by)}</CardTitle>
+                {post.post_id}
                 <Button onClick={() => deletePost(post.post_id)}>Delete</Button>
                 </div>
             </CardHeader>
