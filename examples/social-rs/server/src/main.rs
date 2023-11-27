@@ -201,7 +201,7 @@ async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpRespo
     }
 }
 
-/// Adds a new user to the "users" collection in the database.
+/// Adds a new post to the "posts" collection in the database.
 #[post("/add_post")]
 async fn add_post(client: web::Data<Client>, form: web::Json<Post>) -> HttpResponse {
     println!("Req received at /add-post");
