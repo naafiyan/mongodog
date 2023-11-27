@@ -82,6 +82,26 @@ async fn delete_user(client: web::Data<Client>,  user_id: web::Path<String>) -> 
     HttpResponse::Ok().body("User deletion successful")
 }
 
+#[delete("/delete_comment/{comment_id}")]
+async fn delete_comment(client: web::Data<Client>,  comment_id: web::Path<String>) -> HttpResponse {
+    let comment_id = comment_id.into_inner();
+    let database = client.database(DB_NAME);
+    let collection: Collection<Comment> = database.collection(Comment::collection_name());
+    let comment = match collection
+        .find_one(doc! { "comment_id": comment_id.clone().to_string().parse::<i32>().unwrap() }, None)
+        .await
+    {
+        Ok(Some(comment)) => comment,
+        Ok(None) => {
+            return HttpResponse::NotFound().body(format!("No comment found with id {comment_id}"))
+        }
+        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+    };
+    let result = safe_delete(comment, &database).await;
+    HttpResponse::Ok().body("Comment deletion successful")
+}
+
+
 
 
 
@@ -301,6 +321,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_all_posts)
             .service(delete_post)
             .service(delete_user)
+            .service(delete_comment)
             .service(get_posts_for_user)
             .service(home)
     })
