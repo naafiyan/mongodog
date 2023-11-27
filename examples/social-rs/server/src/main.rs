@@ -13,6 +13,7 @@ use mongowner::Schemable;
 use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 use post::Post;
 use user::User;
+use comment::Comment;
 
 const DB_NAME: &str = "social";
 
@@ -81,6 +82,26 @@ async fn delete_user(client: web::Data<Client>,  user_id: web::Path<String>) -> 
     HttpResponse::Ok().body("User deletion successful")
 }
 
+#[delete("/delete_comment/{comment_id}")]
+async fn delete_comment(client: web::Data<Client>,  comment_id: web::Path<String>) -> HttpResponse {
+    let comment_id = comment_id.into_inner();
+    let database = client.database(DB_NAME);
+    let collection: Collection<Comment> = database.collection(Comment::collection_name());
+    let comment = match collection
+        .find_one(doc! { "comment_id": comment_id.clone().to_string().parse::<i32>().unwrap() }, None)
+        .await
+    {
+        Ok(Some(comment)) => comment,
+        Ok(None) => {
+            return HttpResponse::NotFound().body(format!("No comment found with id {comment_id}"))
+        }
+        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+    };
+    let result = safe_delete(comment, &database).await;
+    HttpResponse::Ok().body("Comment deletion successful")
+}
+
+
 
 
 
@@ -104,6 +125,28 @@ async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
         }
     }
     HttpResponse::Ok().json(users)
+}
+
+#[get("/get_all_comments")]
+async fn get_all_comments(client: web::Data<Client>) -> HttpResponse {
+    let collection: Collection<Comment> = client.database(DB_NAME).collection(Comment::collection_name());
+    let mut comments_cursor = match collection.find(None, None).await {
+        mongowner::mongo::error::Result::Ok(cursor) => cursor,
+        mongowner::mongo::error::Result::Err(err) => panic!("Failed in cursor loop"), // TODO: N - better error handling
+    };
+
+    let mut comments: Vec<Comment> = Vec::new();
+    while let Some(doc) = comments_cursor.next().await {
+        match doc {
+            Ok(comment) => {
+                comments.push(comment);
+            }
+            Err(e) => {
+                HttpResponse::InternalServerError().body(e.to_string());
+            }
+        }
+    }
+    HttpResponse::Ok().json(comments)
 }
 
 #[get("/get_all_posts")]
@@ -214,6 +257,20 @@ async fn add_post(client: web::Data<Client>, form: web::Json<Post>) -> HttpRespo
     }
 }
 
+/// Adds a new post to the "posts" collection in the database.
+#[post("/add_comment")]
+async fn add_comment(client: web::Data<Client>, form: web::Json<Comment>) -> HttpResponse {
+    println!("Req received at /add-comment");
+    let collection = client.database(DB_NAME).collection(Comment::collection_name());
+    println!("Getting post to add: {:?}", form.clone());
+    let result = collection.insert_one(form.into_inner(), None).await;
+    match result {
+        Ok(_) => HttpResponse::Ok().body("Comment added"),
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
+}
+
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
@@ -278,13 +335,16 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(client.clone()))
             .service(add_user)
             .service(add_post)
+            .service(add_comment)
             .service(get_user)
             .service(clear_users)
             .service(clear_posts)
             .service(get_all_users)
             .service(get_all_posts)
+            .service(get_all_comments)
             .service(delete_post)
             .service(delete_user)
+            .service(delete_comment)
             .service(get_posts_for_user)
             .service(home)
     })
