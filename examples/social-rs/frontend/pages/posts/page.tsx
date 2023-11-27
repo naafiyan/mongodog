@@ -121,7 +121,7 @@ const Page = () => {
     }
 
     function deletePost(post_id: string) {
-        axios.post(`${ENDPOINT_BASE}/delete_post/${post_id}`).then((response) => {
+        axios.delete(`${ENDPOINT_BASE}/delete_post/${post_id}`).then((response) => {
             console.log(response);
             toast({
                 title: response.statusText,

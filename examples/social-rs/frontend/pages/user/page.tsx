@@ -91,6 +91,15 @@ const Page = () => {
     }
 
 
+    function delete_user(user_id: string) {
+        axios.delete(`${ENDPOINT_BASE}/delete_user/${user_id}`).then((response) => {
+            console.log(response);
+     
+        }).catch((error) => {
+            console.error(error);
+        })
+    }
+
 
 
 
@@ -119,6 +128,8 @@ const Page = () => {
                 <div className="flex gap-3 justify-between w-full">
                 <CardTitle key={`${user.user_id}`}>                     {user.username}
 </CardTitle>
+<Button onClick={() => delete_user(user.user_id)}>Delete</Button>
+
                 </div>
             </CardHeader>
             
