@@ -127,6 +127,28 @@ async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
     HttpResponse::Ok().json(users)
 }
 
+#[get("/get_all_comments")]
+async fn get_all_comments(client: web::Data<Client>) -> HttpResponse {
+    let collection: Collection<Comment> = client.database(DB_NAME).collection(Comment::collection_name());
+    let mut comments_cursor = match collection.find(None, None).await {
+        mongowner::mongo::error::Result::Ok(cursor) => cursor,
+        mongowner::mongo::error::Result::Err(err) => panic!("Failed in cursor loop"), // TODO: N - better error handling
+    };
+
+    let mut comments: Vec<Comment> = Vec::new();
+    while let Some(doc) = comments_cursor.next().await {
+        match doc {
+            Ok(comment) => {
+                comments.push(comment);
+            }
+            Err(e) => {
+                HttpResponse::InternalServerError().body(e.to_string());
+            }
+        }
+    }
+    HttpResponse::Ok().json(comments)
+}
+
 #[get("/get_all_posts")]
 async fn get_all_posts(client: web::Data<Client>) -> HttpResponse {
     let collection: Collection<Post> = client.database(DB_NAME).collection(Post::collection_name());
@@ -319,6 +341,7 @@ async fn main() -> std::io::Result<()> {
             .service(clear_posts)
             .service(get_all_users)
             .service(get_all_posts)
+            .service(get_all_comments)
             .service(delete_post)
             .service(delete_user)
             .service(delete_comment)
