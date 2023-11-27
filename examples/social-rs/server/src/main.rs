@@ -13,6 +13,7 @@ use mongowner::Schemable;
 use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 use post::Post;
 use user::User;
+use comment::Comment;
 
 const DB_NAME: &str = "social";
 
@@ -214,6 +215,20 @@ async fn add_post(client: web::Data<Client>, form: web::Json<Post>) -> HttpRespo
     }
 }
 
+/// Adds a new post to the "posts" collection in the database.
+#[post("/add_comment")]
+async fn add_comment(client: web::Data<Client>, form: web::Json<Comment>) -> HttpResponse {
+    println!("Req received at /add-comment");
+    let collection = client.database(DB_NAME).collection(Comment::collection_name());
+    println!("Getting post to add: {:?}", form.clone());
+    let result = collection.insert_one(form.into_inner(), None).await;
+    match result {
+        Ok(_) => HttpResponse::Ok().body("Comment added"),
+        Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
+    }
+}
+
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();
@@ -278,6 +293,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(web::Data::new(client.clone()))
             .service(add_user)
             .service(add_post)
+            .service(add_comment)
             .service(get_user)
             .service(clear_users)
             .service(clear_posts)
