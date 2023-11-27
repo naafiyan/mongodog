@@ -54,9 +54,9 @@ const Page = () => {
 
     const onSubmit: SubmitHandler<Inputs> = (data) => {
         const {text, parent_post, date} = data;
-        axios.post(`${ENDPOINT_BASE}/add_user`, {
+        axios.post(`${ENDPOINT_BASE}/add_comment`, {
             text,
-            parent_post,
+            parent_post: Number(parent_post),
             date: dayjs(date).format('YYYY-MM-DD'),
             comment_id: Math.floor(Math.random() * 100000)
         }).then((response) => {
@@ -87,7 +87,7 @@ const Page = () => {
         <Input {...register('parent_post', {required: true})} placeholder="Parent post ID" />
         <div className="flex gap-3">
        
-        <Button variant="outline" type="submit">Create User</Button>
+        <Button variant="outline" type="submit">Post Comment</Button>
     </div>
         </div>
         </form>
