@@ -121,7 +121,7 @@ const Page = () => {
     }
 
     function deletePost(post_id: string) {
-        axios.post(`${ENDPOINT_BASE}/delete_post/${post_id}`).then((response) => {
+        axios.delete(`${ENDPOINT_BASE}/delete_post/${post_id}`).then((response) => {
             console.log(response);
             toast({
                 title: response.statusText,
@@ -167,6 +167,7 @@ const Page = () => {
             <CardHeader>
                 <div className="flex gap-3 justify-between w-full">
                 <CardTitle key={`${post.post_id}-${post.posted_by}`}> {getUsername(post.posted_by)}</CardTitle>
+                {post.post_id}
                 <Button onClick={() => deletePost(post.post_id)}>Delete</Button>
                 </div>
             </CardHeader>

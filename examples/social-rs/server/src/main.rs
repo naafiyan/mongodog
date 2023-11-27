@@ -42,12 +42,47 @@ async fn clear_posts(client: web::Data<Client>) -> HttpResponse {
     HttpResponse::Ok().body("Posts cleared")
 }
 
-#[post("/delete_post/{post_id}")]
+#[delete("/delete_post/{post_id}")]
 async fn delete_post(client: web::Data<Client>,  post_id: web::Path<String>) -> HttpResponse {
     let post_id = post_id.into_inner();
-    //TK - SAFE DELETE
+    let database = client.database(DB_NAME);
+    let collection: Collection<Post> = database.collection(Post::collection_name());
+    let post = match collection
+        .find_one(doc! { "post_id": post_id.clone().to_string().parse::<i32>().unwrap() }, None)
+        .await
+    {
+        Ok(Some(post)) => post,
+        Ok(None) => {
+            return HttpResponse::NotFound().body(format!("No post found with post_id {post_id}"))
+        }
+        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+    };
+    let result = safe_delete(post, &database).await;
     HttpResponse::Ok().body("Post deletion successful")
 }
+
+
+#[delete("/delete_user/{user_id}")]
+async fn delete_user(client: web::Data<Client>,  user_id: web::Path<String>) -> HttpResponse {
+    let user_id = user_id.into_inner();
+    let database = client.database(DB_NAME);
+    let collection: Collection<User> = database.collection(User::collection_name());
+    let user = match collection
+        .find_one(doc! { "user_id": user_id.clone().to_string().parse::<i32>().unwrap() }, None)
+        .await
+    {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return HttpResponse::NotFound().body(format!("No user found with user_id {user_id}"))
+        }
+        Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
+    };
+    let result = safe_delete(user, &database).await;
+    HttpResponse::Ok().body("User deletion successful")
+}
+
+
+
 
 #[get("/get_all_users")]
 async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
@@ -166,7 +201,7 @@ async fn add_user(client: web::Data<Client>, form: web::Json<User>) -> HttpRespo
     }
 }
 
-/// Adds a new user to the "users" collection in the database.
+/// Adds a new post to the "posts" collection in the database.
 #[post("/add_post")]
 async fn add_post(client: web::Data<Client>, form: web::Json<Post>) -> HttpResponse {
     println!("Req received at /add-post");
@@ -249,6 +284,7 @@ async fn main() -> std::io::Result<()> {
             .service(get_all_users)
             .service(get_all_posts)
             .service(delete_post)
+            .service(delete_user)
             .service(get_posts_for_user)
             .service(home)
     })
