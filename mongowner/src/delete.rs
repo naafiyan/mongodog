@@ -1,12 +1,12 @@
+use crate::util::*;
+
 use async_recursion::async_recursion;
 use futures::future::try_join_all;
 use futures::stream::TryStreamExt;
 use mongodb::bson::Document;
 use mongodb::{bson::doc, Database};
 use petgraph::{graphmap::GraphMap, Directed, Direction};
-use serde::{Deserialize, Serialize};
-use std::path::Path;
-use std::{env, fmt::Debug, fs, io::Read};
+use std::fmt::Debug;
 
 /// The `Schemable` trait provides the details associated with a data model struct,
 /// necessary to safely delete it and all the data an instance of this model owns.
@@ -20,14 +20,6 @@ pub trait Schemable {
     fn index_value(&self) -> Self::Value;
 }
 
-/// Represents an edge between two structs.
-/// Ex. for User, Post, we would have owner_index = user_id, owned_field = posted_by
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-struct OwnEdge<'a> {
-    owner_index: &'a str,
-    owned_field: &'a str,
-}
-
 /// Safe deletion for an object that implements the `Schemable` trait, where "safety"
 /// is defined as the property that deleting a `Schemable` deletes all of the data it
 /// exclusively owns, i.e. leaves no orphaned data.
@@ -39,18 +31,9 @@ where
     mongodb::bson::Bson: From<<T as Schemable>::Value>,
 {
     println!("DEBUG: entered safe_delete");
-    // Reference the graph in env::var("OUT_DIR")
-    // TODO: move graph-reading code out into a util function
-    let out_dir = env::var("OUT_DIR").unwrap();
-    let dir_path = Path::new(&out_dir);
-    let graph_path = dir_path.join("graph.json");
-    let mut file = fs::File::open(graph_path)?;
+
     let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    let graph: GraphMap<&str, OwnEdge, Directed> = match serde_json::from_str(&contents) {
-        Ok(g) => g,
-        Err(_) => GraphMap::new(),
-    };
+    let graph = load_graph(&mut contents)?;
 
     // Look up to_delete.collection_name in the graph to get a starting point
     // User
