@@ -41,6 +41,7 @@ type Post = {
 
 type Comment = {
     comment_id: string;
+    commented_by: string;
     text: string;
     parent_post: string;
     date: string;
@@ -95,6 +96,7 @@ const Page = () => {
         try {
             const response = await axios.get(`${ENDPOINT_BASE}/get_all_comments`, { 
             });
+            console.log(response.data)
             setComments(response.data);
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -193,7 +195,7 @@ const Page = () => {
                     {comments.filter((comment) => comment.parent_post === post.post_id).map((comment) => (
                         <div className="flex gap-5 border-solid border-2">
                             <div>{comment.text}</div>
-                            <div>{comment.date}</div>
+                            <div>{getUsername(comment.commented_by)}</div>
                             </div>))}
                 </div>
                 </div>

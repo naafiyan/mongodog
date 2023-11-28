@@ -12,15 +12,30 @@ import { Button } from "@/components/ui/button"
 import { useForm, SubmitHandler } from "react-hook-form"
 import { Input } from "@/components/ui/input"
 import dayjs from 'dayjs';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    } from "@/components/ui/select"
 
-
-
+type User = {
+    user_id: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    age: number;
+    email: string;
+    };
+      
 
 type Comment = {
     comment_id: string;
     text: string;
     parent_post: string;
     date: string;
+    commented_by: string;
 }
 
 type Inputs = {
@@ -32,6 +47,9 @@ type Inputs = {
 const Page = () => {
     const ENDPOINT_BASE: string = "http://localhost:8080";
     const [comments, setComments] = useState<Comment[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [userDict, setUserDict] = useState({});
+    const [currentUserId, setCurrentUserId] = useState<string>(""); 
     const {
         register,
         handleSubmit,
@@ -48,7 +66,30 @@ const Page = () => {
     }
 
 
+    async function fetchUsers() {
+        try {
+            const response = await axios.get(`${ENDPOINT_BASE}/get_all_users`, { 
+            });
+            const newUserDict = {};
+            response.data.forEach((user: User) => {
+                //@ts-ignore 
+                newUserDict[user.user_id] = user.username;
+            });
+            setUserDict({...newUserDict});
+            setUsers(response.data);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        }
+    }
+
+    function getUsername(user_id: string) {
+        // @ts-ignore
+        return userDict[user_id];
+    }
+
+
     useEffect(() => {
+        fetchUsers();
       fetchComments();
     }, []);
 
@@ -58,7 +99,8 @@ const Page = () => {
             text,
             parent_post: Number(parent_post),
             date: dayjs(date).format('YYYY-MM-DD'),
-            comment_id: Math.floor(Math.random() * 100000)
+            comment_id: Math.floor(Math.random() * 100000),
+            commented_by: Number(currentUserId)
         }).then((response) => {
             console.log(response);
         }).catch((error) => {
@@ -85,6 +127,18 @@ const Page = () => {
         <div className="flex flex-col gap-3">
         <Input {...register('text', {required: true})} placeholder="Comment text" />
         <Input {...register('parent_post', {required: true})} placeholder="Parent post ID" />
+        <Select onValueChange={(value) => setCurrentUserId(value)}>
+            <SelectTrigger>
+            <SelectValue placeholder="Pick user" asChild>
+                {getUsername(currentUserId)}
+                </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+                {users.map((user) => (
+                    <SelectItem key={user.user_id} value={user.user_id}>{user.username}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
         <div className="flex gap-3">
        
         <Button variant="outline" type="submit">Post Comment</Button>
