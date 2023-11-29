@@ -28,7 +28,7 @@ pub struct Comment {
     #[index]
     pub comment_id: i32,
     #[owned_by(posts, post_id)]
-    pub commented_on: i32,
+    pub parent_post: i32,
     #[owned_by(users, user_id)]
     pub commented_by: i32,
 }
@@ -82,7 +82,7 @@ pub async fn insert_comments(
     for n in 0..count {
         comments.push(Comment {
             comment_id: n,
-            commented_on,
+            parent_post: commented_on,
             commented_by,
         });
     }

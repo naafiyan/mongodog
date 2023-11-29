@@ -16,9 +16,28 @@ pub trait Schemable {
     fn collection_name() -> &'static str;
     fn cascade_delete(&self);
     fn index_name() -> &'static str;
-    // TODO: N - make this a generic return type so it supports any type that users have
     fn index_value(&self) -> Self::Value;
 }
+
+/*
+Goal: Safe deletion currently works by identifying every document to safe_delete, recursively
+calling safe_delete on each of those documents, and then delete_one-ing the top object.
+This can be slow and involve a lot of unnecessary network communication because we're using
+delete_one instead of batching requests with delete_many. We should rewrite using delete_many.
+
+Approach:
+- The reason why we recurse is so that we can identify the children of each document we're
+deleting and delete those children.
+- For a given document, we want to:
+  - Identify the collections that its collection owns.
+  - For each of those collections:
+    - identify the documents that our input document owns.
+    - Recurse?
+    - call delete_many on the identified documents
+- If we call delete_many on the identified documents, we shouldn't call delete_one on them after.
+  This seems like a case where the safe_delete, safe_delete_document distinction is helpful:
+  we can call delete_one at the end of the former and just delete_many in the latter.
+*/
 
 /// Safe deletion for an object that implements the `Schemable` trait, where "safety"
 /// is defined as the property that deleting a `Schemable` deletes all of the data it
@@ -53,9 +72,14 @@ where
         let doc_vec: Vec<Document> = found_cursor.try_collect().await?;
         let delete_promises: Vec<_> = doc_vec
             .iter()
-            .map(|doc| safe_delete_document(doc, child_coll, &graph, &db))
+            .map(|doc| safe_delete_children(doc, child_coll, &graph, &db))
             .collect();
         try_join_all(delete_promises).await?;
+
+        // Call delete_many on all found elements of our collection
+        collection
+            .delete_many(doc! { edge.owned_field: to_delete.index_value() }, None)
+            .await?;
     }
     // Delete to_delete
     db.collection::<T>(curr_coll_name)
@@ -66,11 +90,13 @@ where
 }
 
 /// Helper function for safe_delete that operates on documents instead of schemables.
-/// This is the function that recurs internally when a user calls safe_delete.
+/// This is the function that recurs internally when a user calls safe_delete. This does
+/// not delete the inputted document itself, but it does delete everything that document
+/// directly or indirectly owns.
 /// Note: the ?Send annotation prevents communication between threads; this is a quick
 /// fix to the dyn Error type being un-Send-able. May revisit.
 #[async_recursion(?Send)]
-async fn safe_delete_document<'a>(
+async fn safe_delete_children<'a>(
     to_delete: &Document,
     collection_name: &str,
     graph: &GraphMap<&str, OwnEdge<'a>, Directed>,
@@ -96,16 +122,14 @@ async fn safe_delete_document<'a>(
         let doc_vec: Vec<Document> = found_cursor.try_collect().await?;
         let delete_promises: Vec<_> = doc_vec
             .iter()
-            .map(|doc| safe_delete_document(doc, child_coll, &graph, &db))
+            .map(|doc| safe_delete_children(doc, child_coll, &graph, &db))
             .collect();
         try_join_all(delete_promises).await?;
+        // Call delete_many on all found elements of our collection
+        collection
+            .delete_many(doc! { edge.owned_field: owner_id.unwrap() }, None)
+            .await?;
     }
-
-    println!("Deleting from {}", collection_name);
-    // Delete the given document
-    db.collection::<Document>(collection_name)
-        .delete_one(to_delete.to_owned(), None)
-        .await?;
 
     Ok(())
 }
