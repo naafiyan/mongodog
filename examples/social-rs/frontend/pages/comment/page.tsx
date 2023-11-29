@@ -163,7 +163,8 @@ const Page = () => {
 
 <div className="flex flex-col gap-3 ">
             <h2>Comments</h2>
-        {comments.map((comment) => (
+            {/* @ts-ignore */}
+        {comments.sort((a,b) => dayjs(b.date) - dayjs(a.date)).map((comment) => (
             // @ts-ignore
             <Card key={comment.comment_id} className="w-64" style={{backgroundColor: colorDict[comment.commented_by]}}>
             <CardHeader>
@@ -177,7 +178,7 @@ const Page = () => {
             </CardHeader>
             
             <CardContent>
-                <CardDescription>
+                <CardDescription className="text-black">
                 Parent Post: {comment.parent_post}
                 </CardDescription>
             </CardContent>
