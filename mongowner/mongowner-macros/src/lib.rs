@@ -259,6 +259,7 @@ fn add_edge_to_file(
     };
     graph.add_edge(node_a, node_b, edge);
 
+    // Check that adding this edge doesn't introduce a cycle
     if is_cyclic_directed(&graph) {
         println!("\nDEBUG: cycle detected\n");
         return Err(format!(

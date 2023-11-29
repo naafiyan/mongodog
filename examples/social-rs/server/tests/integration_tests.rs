@@ -51,7 +51,7 @@ impl Drop for MongodProc {
 
 #[test]
 fn test_user_api() {
-    let _ = MongodProc::new("db_test");
+    // let _ = MongodProc::new("db_test");
     // insert something into the db using the add_user endpoint
 }
 
