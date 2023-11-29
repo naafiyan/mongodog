@@ -1,6 +1,6 @@
 extern crate proc_macro;
 use dotenv::dotenv;
-use petgraph::{graphmap, Directed};
+use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 use proc_macro::TokenStream;
 use proc_macro2::Ident;
 use quote::quote;
@@ -134,17 +134,14 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                         owned_field: &reference_field,
                     };
 
-                    println!("DEBUG: generating graph!");
                     let dir = env::var("OUT_DIR").expect("No OUT_DIR specified");
                     let dir_path = Path::new(&dir);
                     let graph_path = dir_path.join("graph.json");
-                    println!("DEBUG: graph path is {:?}", &graph_path);
 
-                    // `curr_node_name` is owned by `name`
-                    let res =
-                        add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path);
-
-                    println!("DEBUG: res: {:?}", res);
+                    match add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path) {
+                        Err(e) => panic!("Could not add edge to file: {:?}", e),
+                        Ok(_) => (),
+                    };
 
                     Ok(())
                 });
@@ -261,6 +258,15 @@ fn add_edge_to_file(
         graph.add_node(owner_node)
     };
     graph.add_edge(node_a, node_b, edge);
+
+    if is_cyclic_directed(&graph) {
+        println!("\nDEBUG: cycle detected\n");
+        return Err(format!(
+            "Adding edge ({}, {}) created cycle in ownership graph.",
+            node_a, node_b
+        )
+        .into());
+    }
 
     // restore the saved position
     file.seek(SeekFrom::Start(saved_position))?;

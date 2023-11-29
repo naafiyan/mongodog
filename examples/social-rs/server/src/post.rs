@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 pub struct Post {
     #[index]
     pub post_id: u32,
+    // uncomment this to test out cycle detection
+    // #[owned_by(comments, text)]
     pub text: String,
     #[owned_by(users, user_id)]
     pub posted_by: u32,
