@@ -49,6 +49,7 @@ const Page = () => {
     const [comments, setComments] = useState<Comment[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [userDict, setUserDict] = useState({});
+    const [colorDict, setColorDict] = useState({});
     const [currentUserId, setCurrentUserId] = useState<string>(""); 
     const {
         register,
@@ -66,16 +67,29 @@ const Page = () => {
     }
 
 
+    const colors = [
+        '#9CF779',
+        '#B888B3',
+        '#F779EB',
+        '#8EA286',
+        '#786176'
+    ]
+      
     async function fetchUsers() {
         try {
             const response = await axios.get(`${ENDPOINT_BASE}/get_all_users`, { 
             });
             const newUserDict = {};
-            response.data.forEach((user: User) => {
+            const newColorDict = {};
+            response.data.forEach((user: User, index: number) => {
                 //@ts-ignore 
                 newUserDict[user.user_id] = user.username;
+                const color = colors[index % colors.length];
+                //@ts-ignore
+                newColorDict[user.user_id] = color;
             });
             setUserDict({...newUserDict});
+            setColorDict({...newColorDict});
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -150,7 +164,8 @@ const Page = () => {
 <div className="flex flex-col gap-3 ">
             <h2>Comments</h2>
         {comments.map((comment) => (
-            <Card key={comment.comment_id} className="w-64">
+            // @ts-ignore
+            <Card key={comment.comment_id} className="w-64" style={{backgroundColor: colorDict[comment.commented_by]}}>
             <CardHeader>
                 <div className="flex gap-3 justify-between w-full">
                 <CardTitle key={`${comment.text}`}>                     

@@ -57,6 +57,8 @@ const Page = () => {
     const [posts, setPosts] = useState<Post[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [userDict, setUserDict] = useState({});
+    const [colorDict, setColorDict] = useState({});
+
     const [comments, setComments] = useState<Comment[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string>(""); 
     const {
@@ -74,17 +76,30 @@ const Page = () => {
           console.error('Error fetching data:', error);
         }
       }
+
+      const colors = [
+        '#9CF779',
+        '#B888B3',
+        '#F779EB',
+        '#8EA286',
+        '#786176'
+    ]
       
     async function fetchUsers() {
         try {
             const response = await axios.get(`${ENDPOINT_BASE}/get_all_users`, { 
             });
             const newUserDict = {};
-            response.data.forEach((user: User) => {
+            const newColorDict = {};
+            response.data.forEach((user: User, index: number) => {
                 //@ts-ignore 
                 newUserDict[user.user_id] = user.username;
+                const color = colors[index % colors.length];
+                //@ts-ignore
+                newColorDict[user.user_id] = color;
             });
             setUserDict({...newUserDict});
+            setColorDict({...newColorDict});
             setUsers(response.data);
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -185,7 +200,8 @@ const Page = () => {
         <div className="flex flex-col gap-3 ">
             <h2>Posts</h2>
         {posts.sort((a,b) => dayjs(b.date).diff(dayjs(a.date))).map((post) => (
-            <Card key={post.post_id} className="w-64">
+            // @ts-ignore
+            <Card key={post.post_id} className="w-64" style={{backgroundColor: colorDict[post.posted_by]}}>
             <CardHeader>
                 <div className="flex gap-3 justify-between w-full">
                 <CardTitle key={`${post.post_id}-${post.posted_by}`}> {getUsername(post.posted_by)}</CardTitle>
@@ -193,7 +209,8 @@ const Page = () => {
                 <Button onClick={() => deletePost(post.post_id)}>Delete</Button>
                 <div className="flex gap-4 justify-between w-half">
                     {comments.filter((comment) => comment.parent_post === post.post_id).map((comment) => (
-                        <div className="flex gap-5 border-solid border-2">
+                        // @ts-ignore
+                        <div className="flex gap-5 border-solid border-2" style={{backgroundColor: colorDict[comment.commented_by]}}>
                             <div>{comment.text}</div>
                             <div>{getUsername(comment.commented_by)}</div>
                             </div>))}
