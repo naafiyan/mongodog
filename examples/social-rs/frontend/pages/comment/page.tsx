@@ -19,6 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
     } from "@/components/ui/select"
+import { Textarea } from '@/components/ui/textarea';
 
 type User = {
     user_id: string;
@@ -68,13 +69,12 @@ const Page = () => {
 
 
     const colors = [
-        '#9CF779',
-        '#B888B3',
-        '#F779EB',
-        '#8EA286',
-        '#786176'
+        '#3ABEFF',
+        '#D84797',
+        '#26FFE6',
+        '#820933',
+        '#D2FDFF'
     ]
-      
     async function fetchUsers() {
         try {
             const response = await axios.get(`${ENDPOINT_BASE}/get_all_users`, { 
@@ -138,8 +138,8 @@ const Page = () => {
     
     return <div className="p-4 flex flex-col gap-4">
               <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="flex flex-col gap-3">
-        <Input {...register('text', {required: true})} placeholder="Comment text" />
+        <div className="flex flex-col gap-3 w-72">
+        <Textarea {...register('text', {required: true})} placeholder="Comment text" />
         <Input {...register('parent_post', {required: true})} placeholder="Parent post ID" />
         <Select onValueChange={(value) => setCurrentUserId(value)}>
             <SelectTrigger>
@@ -163,7 +163,8 @@ const Page = () => {
 
 <div className="flex flex-col gap-3 ">
             <h2>Comments</h2>
-        {comments.map((comment) => (
+            {/* @ts-ignore */}
+        {comments.sort((a,b) => dayjs(b.date) - dayjs(a.date)).map((comment) => (
             // @ts-ignore
             <Card key={comment.comment_id} className="w-64" style={{backgroundColor: colorDict[comment.commented_by]}}>
             <CardHeader>
@@ -177,7 +178,7 @@ const Page = () => {
             </CardHeader>
             
             <CardContent>
-                <CardDescription>
+                <CardDescription className="text-black">
                 Parent Post: {comment.parent_post}
                 </CardDescription>
             </CardContent>

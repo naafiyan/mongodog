@@ -50,11 +50,11 @@ const Page = () => {
     
 
       const colors = [
-        '#9CF779',
-        '#B888B3',
-        '#F779EB',
-        '#8EA286',
-        '#786176'
+        '#3ABEFF',
+        '#D84797',
+        '#26FFE6',
+        '#820933',
+        '#D2FDFF'
     ]
       
     async function fetchUsers() {
@@ -119,7 +119,7 @@ const Page = () => {
     
     return <div className="p-4 flex flex-col gap-4">
               <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 w-72">
         <Input {...register('username', {required: true})} placeholder="Username" />
         <Input {...register('first_name', {required: true})} placeholder="First Name" />
         <Input {...register('last_name', {required: true})} placeholder="Last Name" />
@@ -148,12 +148,12 @@ const Page = () => {
             </CardHeader>
             
             <CardContent>
-                <CardDescription>
+                <CardDescription className="text-black">
                 {user.email}
                 </CardDescription>
             </CardContent>
             <CardFooter>
-                <CardDescription>
+                <CardDescription className="text-black">
                 {user.first_name} {user.last_name}
                 </CardDescription>
             </CardFooter>
