@@ -50,11 +50,11 @@ const Page = () => {
     
 
       const colors = [
-        '#9CF779',
-        '#B888B3',
-        '#F779EB',
-        '#8EA286',
-        '#786176'
+        '#3ABEFF',
+        '#D84797',
+        '#26FFE6',
+        '#820933',
+        '#D2FDFF'
     ]
       
     async function fetchUsers() {
