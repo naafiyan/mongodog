@@ -19,6 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
     } from "@/components/ui/select"
+import { Textarea } from '@/components/ui/textarea';
 
 type User = {
     user_id: string;
@@ -137,8 +138,8 @@ const Page = () => {
     
     return <div className="p-4 flex flex-col gap-4">
               <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="flex flex-col gap-3">
-        <Input {...register('text', {required: true})} placeholder="Comment text" />
+        <div className="flex flex-col gap-3 w-72">
+        <Textarea {...register('text', {required: true})} placeholder="Comment text" />
         <Input {...register('parent_post', {required: true})} placeholder="Parent post ID" />
         <Select onValueChange={(value) => setCurrentUserId(value)}>
             <SelectTrigger>
