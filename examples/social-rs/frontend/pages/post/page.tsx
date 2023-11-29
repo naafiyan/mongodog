@@ -52,6 +52,9 @@ type Inputs = {
     posted_by: string;
   };
 
+
+
+
 const Page = () => {
     const ENDPOINT_BASE: string = "http://localhost:8080";
     const [posts, setPosts] = useState<Post[]>([]);
@@ -78,11 +81,11 @@ const Page = () => {
       }
 
       const colors = [
-        '#9CF779',
-        '#B888B3',
-        '#F779EB',
-        '#8EA286',
-        '#786176'
+        '#3ABEFF',
+        '#D84797',
+        '#26FFE6',
+        '#820933',
+        '#D2FDFF'
     ]
       
     async function fetchUsers() {
@@ -201,31 +204,32 @@ const Page = () => {
             <h2>Posts</h2>
         {posts.sort((a,b) => dayjs(b.date).diff(dayjs(a.date))).map((post) => (
             // @ts-ignore
-            <Card key={post.post_id} className="w-64" style={{backgroundColor: colorDict[post.posted_by]}}>
+            <Card key={post.post_id} className="w-72" style={{backgroundColor: colorDict[post.posted_by]}}>
             <CardHeader>
-                <div className="flex gap-3 justify-between w-full">
-                <CardTitle key={`${post.post_id}-${post.posted_by}`}> {getUsername(post.posted_by)}</CardTitle>
-                {post.post_id}
+                <div className="flex gap-3 justify-between w-full items-center text-black">
+                <CardTitle key={`${post.post_id}-${post.posted_by}`}> @{getUsername(post.posted_by)}</CardTitle>
                 <Button onClick={() => deletePost(post.post_id)}>Delete</Button>
-                <div className="flex gap-4 justify-between w-half">
+                <div className="flex gap-4 justify-between w-half ml-20">
                     {comments.filter((comment) => comment.parent_post === post.post_id).map((comment) => (
                         // @ts-ignore
-                        <div className="flex gap-5 border-solid border-2" style={{backgroundColor: colorDict[comment.commented_by]}}>
-                            <div>{comment.text}</div>
-                            <div>{getUsername(comment.commented_by)}</div>
+                        <div className="flex flex-col gap-5 border-solid border-2 p-4 rounded-md text-black" style={{backgroundColor: colorDict[comment.commented_by]}}>
+                            <div className="font-bold">@{getUsername(comment.commented_by)}</div>
+                            <div className="">{comment.text}</div>
+
                             </div>))}
                 </div>
                 </div>
             </CardHeader>
             
             <CardContent>
-                <CardDescription>
-                {post.text}
+                <CardDescription className="text-black">
+                {post.text} <br />
+                {post.post_id}
                 </CardDescription>
             </CardContent>
             <CardFooter>
-                <CardDescription>
-                {post.date}
+                <CardDescription className="text-black">
+                {dayjs(post.date).format('MM/DD/YYYY')}
                 </CardDescription>
             </CardFooter>
             </Card>
