@@ -178,7 +178,7 @@ const Page = () => {
     return <div className="p-4 flex flex-col gap-4">
         {/* <Button onClick={() => updateUsersAndPosts()}>Refresh Everything</Button> */}
         <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 w-72">
         <Textarea {...register('text', {})} placeholder="Post something" />
 
         <div className="flex gap-3">
