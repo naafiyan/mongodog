@@ -209,7 +209,20 @@ const Page = () => {
                 <div className="flex gap-3 justify-between w-full items-center text-black">
                 <CardTitle key={`${post.post_id}-${post.posted_by}`}> @{getUsername(post.posted_by)}</CardTitle>
                 <Button onClick={() => deletePost(post.post_id)}>Delete</Button>
-                <div className="flex gap-4 justify-between w-half ml-20">
+
+                </div>
+            </CardHeader>
+            
+            <CardContent>
+                <CardDescription className="text-black">
+                {post.text} <br />
+                {post.post_id} <br />
+           
+                {dayjs(post.date).format('MM/DD/YYYY')}
+                </CardDescription>
+            </CardContent>
+            <CardFooter>
+            <div className="flex gap-4 justify-between w-half ml-20">
                     {comments.filter((comment) => comment.parent_post === post.post_id).map((comment) => (
                         // @ts-ignore
                         <div className="flex flex-col gap-5 border-solid border-2 p-4 rounded-md text-black" style={{backgroundColor: colorDict[comment.commented_by]}}>
@@ -218,19 +231,6 @@ const Page = () => {
 
                             </div>))}
                 </div>
-                </div>
-            </CardHeader>
-            
-            <CardContent>
-                <CardDescription className="text-black">
-                {post.text} <br />
-                {post.post_id}
-                </CardDescription>
-            </CardContent>
-            <CardFooter>
-                <CardDescription className="text-black">
-                {dayjs(post.date).format('MM/DD/YYYY')}
-                </CardDescription>
             </CardFooter>
             </Card>
     ))}
