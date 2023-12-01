@@ -28,4 +28,5 @@ clean:
 social_db:
 	cd examples/social-rs && mongod --dbpath=db
 
+
 .PHONY: all clean $(PROJECTS)

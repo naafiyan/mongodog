@@ -21,7 +21,9 @@ pub fn load_graph<'a>(
     let out_dir =
         env::var("CARGO_MANIFEST_DIR").expect("Error reading CARGO_MANIFEST_DIR env variable");
     let dir_path = Path::new(&out_dir);
-    let graph_path = dir_path.join("target").join("graph.json");
+    let graph_path = dir_path
+        .join("target")
+        .join(std::env::var("GRAPH_NAME").unwrap_or("graph.json".to_string()));
     let mut file = fs::File::open(graph_path)?;
     file.read_to_string(contents)?;
     let graph: GraphMap<&str, OwnEdge, Directed> = match serde_json::from_str(contents) {

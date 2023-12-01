@@ -138,7 +138,10 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                     let out_dir = env::var("CARGO_MANIFEST_DIR")
                         .expect("Error reading CARGO_MANIFEST_DIR env variable");
                     let dir_path = Path::new(&out_dir);
-                    let graph_path = dir_path.join("target").join("graph.json");
+
+                    let graph_path = dir_path
+                        .join("target")
+                        .join(std::env::var("GRAPH_NAME").unwrap_or("graph.json".to_string()));
                     match add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path) {
                         Err(e) => panic!("Could not add edge to file: {:?}", e),
                         Ok(_) => (),
@@ -187,7 +190,9 @@ fn add_index_to_file(
     let out_dir =
         env::var("CARGO_MANIFEST_DIR").expect("Error reading CARGO_MANIFEST_DIR env variable");
     let dir_path = Path::new(&out_dir);
-    let map_path = dir_path.join("target").join("map.json");
+    let map_path = dir_path
+        .join("target")
+        .join(std::env::var("INDEX_NAME").unwrap_or("index_map.json".to_string()));
     let mut file = OpenOptions::new()
         .read(true)
         .write(true)

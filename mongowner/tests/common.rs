@@ -2,6 +2,7 @@ use mongodb::{Client, Collection, Database};
 use mongowner::{Schema, Schemable};
 use rand::random;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 // Heavily simplified representations of User, Post and Comment for testing
 #[derive(Schema, Serialize, Deserialize)]
@@ -96,4 +97,10 @@ pub async fn coll_count<T>(coll: &Collection<T>) -> u64 {
     coll.estimated_document_count(None)
         .await
         .expect("Error counting")
+}
+
+pub fn set_graph_name() {
+    // let graph_name = format!("graph{}.json", Uuid::new_v4().to_string());
+    // std::env::set_var("GRAPH_NAME", &graph_name);
+    // println!("TEST DEUBG: GRAPH_NAME is {}", graph_name);
 }
