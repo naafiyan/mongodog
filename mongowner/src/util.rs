@@ -17,10 +17,11 @@ pub fn load_graph<'a>(
     contents: &'a mut String,
 ) -> Result<GraphMap<&'_ str, OwnEdge<'_>, Directed>, Box<dyn std::error::Error>> {
     dotenv().ok();
-    // Reference the graph in env::var("OUT_DIR")
-    let out_dir = env::var("OUT_DIR").unwrap();
+    // Reference the graph in env::var("CARGO_MANIFEST_DIR")
+    let out_dir =
+        env::var("CARGO_MANIFEST_DIR").expect("Error reading CARGO_MANIFEST_DIR env variable");
     let dir_path = Path::new(&out_dir);
-    let graph_path = dir_path.join("graph.json");
+    let graph_path = dir_path.join("target").join("graph.json");
     let mut file = fs::File::open(graph_path)?;
     file.read_to_string(contents)?;
     let graph: GraphMap<&str, OwnEdge, Directed> = match serde_json::from_str(contents) {
