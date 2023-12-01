@@ -18,11 +18,15 @@ mongowner_test:
 	cd mongowner && cargo test
 
 social_client:
-	cd examples/social-rs/frontend
+	cd examples/social-rs/frontend && bun dev
 
 clean:
 	cd social-rs/server && cargo clean
 	cd mongowner/mongowner-macros && cargo clean
 	cd mongowner && cargo clean
+
+social_db:
+	cd examples/social-rs && mongod --dbpath=db
+
 
 .PHONY: all clean $(PROJECTS)

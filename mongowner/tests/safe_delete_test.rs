@@ -2,10 +2,12 @@ mod common;
 use common::{init_test_db, teardown_db, Comment, Post, User};
 use mongowner::delete::safe_delete;
 use mongowner::Schemable;
+use std::env::set_var;
 
 // tests if safe_delete works when 1 user owns 1 post
 #[tokio::test]
 async fn safe_delete_single() {
+    common::set_graph_name();
     let db = init_test_db().await.expect("Error with init test db");
     let user_coll = db.collection::<User>(User::collection_name());
     let post_coll = db.collection::<Post>(Post::collection_name());
@@ -25,6 +27,7 @@ async fn safe_delete_single() {
 // Comment owned by Post owned by User
 #[tokio::test]
 async fn safe_delete_post_comment() {
+    common::set_graph_name();
     let db = init_test_db().await.expect("Error with init test db");
     let user_coll = db.collection::<User>(User::collection_name());
     let post_coll = db.collection::<Post>(Post::collection_name());
@@ -51,6 +54,7 @@ async fn safe_delete_post_comment() {
 // Post2 owns Comments [0, 39] and Post7 Owns Comments [40, 99]
 #[tokio::test]
 async fn safe_delete_multiple_users() {
+    common::set_graph_name();
     let db = init_test_db().await.expect("Error with init test db");
     let user_coll = db.collection::<User>(User::collection_name());
     let post_coll = db.collection::<Post>(Post::collection_name());
@@ -79,6 +83,7 @@ async fn safe_delete_multiple_users() {
 // Comment owned by Post owned by User
 #[tokio::test]
 async fn safe_delete_multiple_owners() {
+    common::set_graph_name();
     let db = init_test_db().await.expect("Error with init test db");
     let user_coll = db.collection::<User>(User::collection_name());
     let post_coll = db.collection::<Post>(Post::collection_name());
@@ -114,6 +119,7 @@ async fn safe_delete_multiple_owners() {
 // Comment owned by Post owned by User
 #[tokio::test]
 async fn safe_delete_post() {
+    common::set_graph_name();
     let db = init_test_db().await.expect("Error with init test db");
     let user_coll = db.collection::<User>(User::collection_name());
     let post_coll = db.collection::<Post>(Post::collection_name());
