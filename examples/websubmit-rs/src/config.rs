@@ -10,6 +10,10 @@ pub struct Config {
     pub db_user: String,
     /// Database password
     pub db_password: String,
+    /// Database address with port.
+    pub db_addr: String,
+    /// Path to backup log file.
+    pub backup_file: String,
     /// System admin addresses
     pub admins: Vec<String>,
     /// Staff email addresses
@@ -22,7 +26,7 @@ pub struct Config {
     pub secret: String,
     /// Whether to send emails
     pub send_emails: bool,
-    /// Whether to reset and prime db 
+    /// Whether to reset and prime db
     pub prime: bool,
 }
 
@@ -45,6 +49,8 @@ pub(crate) fn parse(path: &str) -> Result<Config, Error> {
         class: value.get("class").unwrap().as_str().unwrap().into(),
         db_user: value.get("db_user").unwrap().as_str().unwrap().into(),
         db_password: value.get("db_password").unwrap().as_str().unwrap().into(),
+        db_addr: value.get("db_addr").unwrap().as_str().unwrap().into(),
+        backup_file: value.get("backup_file").unwrap().as_str().unwrap().into(),
         admins: value
             .get("admins")
             .unwrap()

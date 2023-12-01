@@ -6,7 +6,7 @@ use crypto::sha2::Sha256;
 use mysql::from_value;
 use rocket::form::Form;
 use rocket::http::Status;
-use rocket::http::{Cookie, CookieJar};
+use rocket::http::{Cookie, CookieJar, SameSite};
 use rocket::outcome::IntoOutcome;
 use rocket::request::{self, FromRequest, Request};
 use rocket::response::Redirect;
@@ -80,7 +80,7 @@ pub(crate) fn generate(
 
     // insert into MySql if not exists
     let mut bg = backend.lock().unwrap();
-    bg.insert(
+    bg.replace(
         "users",
         vec![data.email.as_str().into(), hash.as_str().into(), is_admin],
     );
@@ -94,6 +94,12 @@ pub(crate) fn generate(
             format!("Your {} API key is: {}\n", config.class, hash.as_str(),),
         )
         .expect("failed to send API key email");
+    } else {
+        println!(
+            "GENERATED API KEY \"{}\" for email {}\n",
+            hash.as_str(),
+            data.email
+        );
     }
     drop(bg);
 
@@ -147,7 +153,8 @@ pub(crate) fn check(
     if res.is_err() {
         Redirect::to("/")
     } else {
-        let cookie = Cookie::build("apikey", data.key.clone()).path("/").finish();
+        let mut cookie = Cookie::build("apikey", data.key.clone()).path("/").finish();
+        cookie.set_same_site(SameSite::Lax);
         cookies.add(cookie);
         Redirect::to("/leclist")
     }
