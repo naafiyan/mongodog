@@ -176,7 +176,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                 #index_field_name
             }
             fn index_value(&self) -> Self::Value {
-                self.#index_ident
+                self.#index_ident.clone()
             }
         };
     };

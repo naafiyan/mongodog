@@ -17,6 +17,7 @@ mod backend;
 mod config;
 mod email;
 mod login;
+mod mongo_schema;
 mod questions;
 
 use backend::MySqlBackend;
