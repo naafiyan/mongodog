@@ -19,26 +19,6 @@ pub trait Schemable {
     fn index_value(&self) -> Self::Value;
 }
 
-/*
-Goal: Safe deletion currently works by identifying every document to safe_delete, recursively
-calling safe_delete on each of those documents, and then delete_one-ing the top object.
-This can be slow and involve a lot of unnecessary network communication because we're using
-delete_one instead of batching requests with delete_many. We should rewrite using delete_many.
-
-Approach:
-- The reason why we recurse is so that we can identify the children of each document we're
-deleting and delete those children.
-- For a given document, we want to:
-  - Identify the collections that its collection owns.
-  - For each of those collections:
-    - identify the documents that our input document owns.
-    - Recurse?
-    - call delete_many on the identified documents
-- If we call delete_many on the identified documents, we shouldn't call delete_one on them after.
-  This seems like a case where the safe_delete, safe_delete_document distinction is helpful:
-  we can call delete_one at the end of the former and just delete_many in the latter.
-*/
-
 /// Safe deletion for an object that implements the `Schemable` trait, where "safety"
 /// is defined as the property that deleting a `Schemable` deletes all of the data it
 /// exclusively owns, i.e. leaves no orphaned data.
@@ -49,8 +29,6 @@ pub async fn safe_delete<T: Schemable>(
 where
     mongodb::bson::Bson: From<<T as Schemable>::Value>,
 {
-    println!("DEBUG: entered safe_delete");
-
     let mut contents = String::new();
     let graph = load_graph(&mut contents)?;
 
@@ -62,7 +40,6 @@ where
     let edges_to_children = graph.edges_directed(&curr_coll_name, Direction::Incoming);
 
     for (child_coll, _, edge) in edges_to_children {
-        println!("Edge: {:?}", edge);
         let collection = db.collection::<Document>(child_coll);
         let found_cursor = collection
             .find(doc! { edge.owned_field: to_delete.index_value() }, None)
@@ -133,5 +110,3 @@ async fn safe_delete_children<'a>(
 
     Ok(())
 }
-
-// fn load_graph()
