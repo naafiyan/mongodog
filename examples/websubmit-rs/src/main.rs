@@ -28,6 +28,9 @@ use rocket::State;
 use rocket_dyn_templates::Template;
 use std::sync::{Arc, Mutex};
 
+// Mongodog port
+use mongowner::mongo::{Client, Database};
+
 pub fn new_logger() -> slog::Logger {
     use slog::Drain;
     use slog::Logger;
@@ -54,18 +57,16 @@ async fn main() {
     let args = args::parse_args();
     let config = args.config;
 
-    let backend = Arc::new(Mutex::new(
-        MySqlBackend::new(
-            &config.db_user,
-            &config.db_password,
-            &format!("{}", args.class),
-            &config.db_addr,
-            &config.backup_file,
-            Some(new_logger()),
-            config.prime,
-        )
-        .unwrap(),
-    ));
+    // TODO: N - modify to use MongoDB backend
+    let uri = "mongodb://localhost:27017";
+
+    // replace backend with MongoDB client
+
+    let backend = Client::with_uri_str(uri)
+        .await
+        .expect("Failed to connect to mongo client");
+
+    let db = backend.database("websubmit_db")
 
     let template_dir = config.template_dir.clone();
     let resource_dir = config.resource_dir.clone();
@@ -79,7 +80,7 @@ async fn main() {
 
     if let Err(e) = rocket::build()
         .attach(template)
-        .manage(backend)
+        .manage(db)
         .manage(config)
         .mount("/css", FileServer::from(format!("{}/css", resource_dir)))
         .mount("/js", FileServer::from(format!("{}/js", resource_dir)))

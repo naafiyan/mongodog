@@ -2,9 +2,14 @@ use crate::admin::Admin;
 use crate::apikey::ApiKey;
 use crate::backend::{MySqlBackend, Value};
 use crate::config::Config;
-use crate::email;
+use crate::mongo_schema::Lecture;
+use crate::{email, mongo_schema};
 use chrono::naive::NaiveDateTime;
 use chrono::Local;
+use mongowner::{
+    mongo::{bson::doc, Client, Database},
+    Schemable,
+};
 use mysql::from_value;
 use rocket::form::{Form, FromForm};
 use rocket::response::Redirect;
@@ -73,12 +78,10 @@ struct LectureListContext {
 }
 
 #[get("/")]
-pub(crate) fn leclist(
-    apikey: ApiKey,
-    backend: &State<Arc<Mutex<MySqlBackend>>>,
-    config: &State<Config>,
-) -> Template {
-    let mut bg = backend.lock().unwrap();
+pub(crate) fn leclist(apikey: ApiKey, db: &State<Database>, config: &State<Config>) -> Template {
+    // TODO: N - use static collection name fn
+    let lec_coll = db.collection::<Lecture>("lectures");
+
     let res = bg.prep_exec("SELECT * FROM lectures_with_question_counts", vec![]);
 
     let user = apikey.user.clone();
@@ -128,20 +131,31 @@ pub(crate) fn leclist(
 }
 
 #[get("/<num>")]
-pub(crate) fn answers(
-    _admin: Admin,
-    num: u8,
-    backend: &State<Arc<Mutex<MySqlBackend>>>,
-) -> Template {
+pub(crate) async fn answers(_admin: Admin, num: u8, backend: &State<Client>) -> Template {
     let mut bg = backend.lock().unwrap();
     let key: Value = (num as u64).into();
-    let res = bg.prep_exec(
-        "SELECT answers.email, questions.question_number, answers.answer, answers.submitted_at, questions.lecture_id \
-             FROM answers JOIN questions ON (answers.question_id = questions.id) \
-             WHERE questions.lecture_id = ? \
-             ORDER BY answers.email, questions.question_number",
-        vec![key],
-    );
+    // let res = bg.prep_exec(
+    //     "SELECT answers.email, questions.question_number, answers.answer, answers.submitted_at, questions.lecture_id \
+    //          FROM answers JOIN questions ON (answers.question_id = questions.id) \
+    //          WHERE questions.lecture_id = ? \
+    //          ORDER BY answers.email, questions.question_number",
+    //     vec![key],
+    // );
+
+    // find all the answers for lecture with where lecture id = key
+    let db = bg.database("websubmit_db");
+    let answers_coll = db.collection(mongo_schema::Answer::collection_name());
+
+    // TODO: N - update after making default owned_by defaults own self
+    let lectures_coll = db.collection("lectures");
+
+    // find all answers where lecture_id = key
+
+    let res = answers_coll
+        .find(doc!("lecture_id": num.into()), None)
+        .await
+        .unwrap();
+
     drop(bg);
     let answers: Vec<_> = res
         .into_iter()
@@ -171,18 +185,26 @@ pub(crate) fn answers(
 pub(crate) fn questions(
     apikey: ApiKey,
     num: u8,
-    backend: &State<Arc<Mutex<MySqlBackend>>>,
+    backend: &State<Arc<Mutex<mongowner::mongo::Client>>>,
 ) -> Template {
     let mut bg = backend.lock().unwrap();
     let key: Value = (num as u64).into();
 
-    let answers_res = bg.prep_exec(
-        "SELECT answers.question_id, answers.answer, questions.lecture_id, answers.email \
-         FROM answers JOIN questions ON (answers.question_id = questions.id) \
-         WHERE questions.lecture_id = ? AND answers.email = ? \
-         ORDER BY answers.question_id",
-        vec![key.clone(), apikey.user.clone().into()],
-    );
+    // let answers_res = bg.prep_exec(
+    //     "SELECT answers.question_id, answers.answer, questions.lecture_id, answers.email \
+    //      FROM answers JOIN questions ON (answers.question_id = questions.id) \
+    //      WHERE questions.lecture_id = ? AND answers.email = ? \
+    //      ORDER BY answers.question_id",
+    //     vec![key.clone(), apikey.user.clone().into()],
+    // );
+
+    // TODO: put mongo database name into config file so that it's a constant
+    let answers_coll = bg
+        .database("websubmit_db")
+        .collection(mongo_schema::Answer::collection_name());
+
+    // get all the answers for this question
+    // let answers_res = answers_coll.find(doc!("question_id"), options)
 
     let mut answers = HashMap::new();
     for r in answers_res {
