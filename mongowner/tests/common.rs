@@ -2,7 +2,6 @@ use mongodb::{Client, Collection, Database};
 use mongowner::{Schema, Schemable};
 use rand::random;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 // Heavily simplified representations of User, Post and Comment for testing
 #[derive(Schema, Serialize, Deserialize)]

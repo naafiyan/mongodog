@@ -2,12 +2,10 @@ mod common;
 use common::{init_test_db, teardown_db, Comment, Post, User};
 use mongowner::delete::safe_delete;
 use mongowner::Schemable;
-use std::env::set_var;
 
 // tests if safe_delete works when 1 user owns 1 post
 #[tokio::test]
 async fn safe_delete_single() {
-    common::set_graph_name();
     let db = init_test_db().await.expect("Error with init test db");
     let user_coll = db.collection::<User>(User::collection_name());
     let post_coll = db.collection::<Post>(Post::collection_name());
