@@ -30,5 +30,6 @@ pub fn load_graph<'a>(
         Ok(g) => g,
         Err(_) => GraphMap::new(),
     };
+    println!("{:#?}", graph);
     Ok(graph)
 }

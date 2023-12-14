@@ -54,6 +54,7 @@ impl SchemaAnnotations {
 #[proc_macro_derive(Schema, attributes(owned_by, collection, index, data_subject))]
 pub fn derive_schema(input: TokenStream) -> TokenStream {
     dotenv().ok();
+    println!("Proc macroing it up");
     // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
 
