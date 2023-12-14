@@ -1,8 +1,8 @@
 # Mongodog
-Mongodog is a final project for Brown University's CS2390: Privacy-Conscious Computer Systems developed by Naafiyan Ahmed, Swetabh Changkakoti and Lucas Gelfond. We aim to improve developer experience and ensure correct deletion of data in a MongoDB database. It consists a Rust crate called `mongowner` as well as example implementations of this crate on applications.
+Mongodog is a final project for Brown University's [CS2390: Privacy-Conscious Computer Systems](https://cs.brown.edu/courses/csci2390/2023/index.html) developed by [Naafiyan Ahmed](https://github.com/naafiyan), [Swetabh Changkakoti](https://github.com/swetabhch) and [Lucas Gelfond](https://github.com/lucasgelfond). We aim to improve developer experience and ensure correct deletion of data in a MongoDB database. It consists a Rust crate called `mongowner` as well as example implementations of this crate on applications.
 
 ## Mongowner
-We provide a Rust crate called `mongowner` that allows for easy-to-implement data ownership modelling and safe cascade deletion for MongoDB. We will publish this crate once we feel it is feature-ready and stable.
+We provide a Rust crate called `mongowner` that allows for easy-to-implement data ownership modelling and safe cascade deletion for MongoDB. The `mongowner` crate is still under development and will be published once it is stable and feature-ready.
 
 Building the crate:
 ```
@@ -63,7 +63,7 @@ make social_client
 ```
 
 ### websubmit-rs
-This is a proof-of-concept application that highlights our library's ability to translate and model SQL ownership relations from [K9Db](https://github.com/brownsys/K9db/) to a NoSQL paradigm. We currently have a file named `mongo_schemas.rs` that contain an example of what the annotated schemas may look like
+This is a proof-of-concept application that highlights our library's ability to translate and model SQL ownership relations from [K9Db](https://github.com/brownsys/K9db/) to a NoSQL paradigm. We currently have a file named [`mongo_schemas.rs`](https://github.com/naafiyan/mongodog/blob/main/examples/websubmit-rs/src/mongo_schema.rs) that contain an example of what the annotated schemas may look like
 Example of translating the `Answer` schema from K9Db's MySQL syntax to mongowner annotations:
 Original K9Db (MySQL) Schema
 ```
