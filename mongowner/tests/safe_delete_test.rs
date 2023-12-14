@@ -1,6 +1,9 @@
 mod common;
 use common::{init_test_db, teardown_db, Comment, Post, User};
 use mongowner::delete::safe_delete;
+use mongowner::mongo::bson::doc;
+use mongowner::mongo::options::IndexOptions;
+use mongowner::mongo::IndexModel;
 use mongowner::Schemable;
 use std::env::set_var;
 
@@ -119,7 +122,6 @@ async fn safe_delete_multiple_owners() {
 // Comment owned by Post owned by User
 #[tokio::test]
 async fn safe_delete_post() {
-    common::set_graph_name();
     let db = init_test_db().await.expect("Error with init test db");
     let user_coll = db.collection::<User>(User::collection_name());
     let post_coll = db.collection::<Post>(Post::collection_name());
@@ -152,3 +154,99 @@ async fn safe_delete_post() {
     assert_eq!(100, common::coll_count::<Comment>(&comment_coll).await);
     teardown_db(&db).await;
 }
+
+// Scaled up version of above - Comment owned by Post owned by User
+#[tokio::test]
+async fn large_safe_delete() {
+    let db = init_test_db().await.expect("Error with init test db");
+    let user_coll = db.collection::<User>(User::collection_name());
+    let post_coll = db.collection::<Post>(Post::collection_name());
+    let comment_coll = db.collection::<Comment>(Comment::collection_name());
+    let user_id = 0;
+    let _ = common::insert_user(&user_coll, user_id).await;
+
+    // User0 owns 10000 posts with ids in range [0, 9]
+    common::insert_posts(&post_coll, user_id, 10000).await;
+    assert_eq!(10000, common::coll_count(&post_coll).await);
+
+    // User0 owns 10000 comments on Post2
+    common::insert_comments(&comment_coll, 0, 2, 10000).await;
+    assert_eq!(10000, common::coll_count(&comment_coll).await);
+
+    // User0 owns 10000 comments on post3 for a total of 20000 comments owned by User0
+    common::insert_comments(&comment_coll, 0, 3, 10000).await;
+    assert_eq!(20000, common::coll_count(&comment_coll).await);
+
+    let post = Post {
+        post_id: 2,
+        posted_by: 0,
+    };
+    let user = User {
+        user_id: 0,
+        username: "Naafi".to_string(),
+    };
+    // safe_deleting Post2
+    safe_delete(user, &db).await.expect("Error safe deleting");
+
+    assert_eq!(0, common::coll_count::<User>(&user_coll).await);
+    assert_eq!(0, common::coll_count::<Post>(&post_coll).await);
+
+    // all comments belonging to User0 should be deleted + all comments belonging to Posts by User0
+    assert_eq!(0, common::coll_count::<Comment>(&comment_coll).await);
+    teardown_db(&db).await;
+}
+
+// Scaled up version of above with indexes - Comment owned by Post owned by User
+// Indexes on the owned_by field
+// #[tokio::test]
+// async fn large_safe_delete_indexed() {
+//     let db = init_test_db().await.expect("Error with init test db");
+//     let user_coll = db.collection::<User>(User::collection_name());
+//
+//     let post_coll = db.collection::<Post>(Post::collection_name());
+//     let index_model = IndexModel::builder()
+//         .keys(doc! { "posted_by": 1 })
+//         .options(Some(IndexOptions::builder().unique(false).build()))
+//         .build();
+//     post_coll.create_index(index_model, None).await.unwrap();
+//
+//     let comment_coll = db.collection::<Comment>(Comment::collection_name());
+//     let index_model = IndexModel::builder()
+//         .keys(doc! { "commented_by": 1, "parent_post": 1 })
+//         .options(Some(IndexOptions::builder().unique(false).build()))
+//         .build();
+//     comment_coll.create_index(index_model, None).await.unwrap();
+//
+//     let user_id = 0;
+//     let _ = common::insert_user(&user_coll, user_id).await;
+//
+//     // User0 owns 10000 posts with ids in range [0, 9]
+//     common::insert_posts(&post_coll, user_id, 10000).await;
+//     assert_eq!(10000, common::coll_count(&post_coll).await);
+//
+//     // User0 owns 10000 comments on Post2
+//     common::insert_comments(&comment_coll, 0, 2, 10000).await;
+//     assert_eq!(10000, common::coll_count(&comment_coll).await);
+//
+//     // User0 owns 10000 comments on post3 for a total of 20000 comments owned by User0
+//     common::insert_comments(&comment_coll, 0, 3, 10000).await;
+//     assert_eq!(20000, common::coll_count(&comment_coll).await);
+//
+//     let post = Post {
+//         post_id: 2,
+//         posted_by: 0,
+//     };
+//     let user = User {
+//         user_id: 0,
+//         username: "Naafi".to_string(),
+//     };
+//     // safe_deleting Post2
+//     safe_delete(user, &db).await.expect("Error safe deleting");
+//
+//     assert_eq!(0, common::coll_count::<User>(&user_coll).await);
+//     assert_eq!(0, common::coll_count::<Post>(&post_coll).await);
+//
+//     // all comments belonging to User0 should be deleted + all comments belonging to Posts by User0
+//     assert_eq!(0, common::coll_count::<Comment>(&comment_coll).await);
+//     teardown_db(&db).await;
+// }
