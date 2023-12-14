@@ -86,7 +86,6 @@ async fn safe_delete_children<'a>(
     // Recursively call safe_delete_document on every document that the current
     // document owns
     for (child_coll, _, edge) in edges_to_children {
-        println!("Edge: {:#?}", edge);
         let collection = db.collection::<Document>(child_coll);
         // Get the owner's id if we haven't already
         if owner_id.is_none() {

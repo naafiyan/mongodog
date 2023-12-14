@@ -54,7 +54,6 @@ impl SchemaAnnotations {
 #[proc_macro_derive(Schema, attributes(owned_by, collection, index, data_subject))]
 pub fn derive_schema(input: TokenStream) -> TokenStream {
     dotenv().ok();
-    println!("Proc macroing it up");
     // Parse the collection name from the #[collection(_)] annotation.
     let input = parse_macro_input!(input as DeriveInput);
 
@@ -143,6 +142,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                     let graph_path = dir_path
                         .join("target")
                         .join(std::env::var("GRAPH_NAME").unwrap_or("graph.json".to_string()));
+                    println!("DEBUG proc_macro writing to graph at {:#?}", graph_path);
                     match add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path) {
                         Err(e) => panic!("Could not add edge to file: {:?}", e),
                         Ok(_) => (),

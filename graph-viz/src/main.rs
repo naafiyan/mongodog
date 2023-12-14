@@ -1,4 +1,6 @@
+use std::env;
 use std::fmt::{self, Display};
+use std::fs::OpenOptions;
 use std::{io::Read, path::Path};
 
 use petgraph::dot::{Config, Dot};
@@ -24,7 +26,9 @@ impl<'a> fmt::Display for OwnEdge<'a> {
 }
 fn main() {
     // load the json graph
-    let graph_path = Path::new("graph.json");
+    let args: Vec<String> = env::args().collect();
+    let file_path = &args[1];
+    let graph_path = Path::new(file_path);
     let mut file = std::fs::File::open(graph_path).unwrap();
     let mut contents = String::new();
     file.read_to_string(&mut contents).unwrap();
@@ -32,7 +36,8 @@ fn main() {
         Ok(g) => g,
         Err(_) => GraphMap::new(),
     };
-    println!("{:?}", Dot::new(&graph));
-
+    // write the Dot graph to a file
+    let dot_graph = Dot::new(&graph);
+    println!("{:?}", dot_graph);
     // TODO: make it a dot file for graph viz
 }
