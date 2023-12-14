@@ -63,16 +63,13 @@ async fn delete_post(client: web::Data<Client>, post_id: web::Path<String>) -> H
     let result = safe_delete(post, &database).await;
     HttpResponse::Ok().body("Post deletion successful")
 }
+
 // Delete a user by user_id WITHOUT safe_delete
 #[delete("/delete_user/{user_id}")]
 async fn delete_user(client: web::Data<Client>, user_id: web::Path<String>) -> HttpResponse {
     let user_id = user_id.into_inner();
     let database = client.database(DB_NAME);
     let collection: Collection<User> = database.collection(User::collection_name());
-
-    // get the post and comments collections
-    let post_collection: Collection<Post> = database.collection(Post::collection_name());
-    let comment_collection: Collection<Comment> = database.collection(Comment::collection_name());
 
     let user = match collection
         .find_one(
@@ -88,42 +85,11 @@ async fn delete_user(client: web::Data<Client>, user_id: web::Path<String>) -> H
         Err(err) => return HttpResponse::InternalServerError().body(err.to_string()),
     };
 
-    let posts = post_collection
-        .find(doc! { "posted_by": user.user_id }, None)
-        .await
-        .map_err(|e| e.to_string())
-        .unwrap()
-        .try_collect::<Vec<Post>>()
-        .await
-        .map_err(|e| e.to_string())
-        .unwrap();
-
-    for post in posts.iter() {
-        // Delete all comments on each post
-        comment_collection
-            .delete_many(doc! { "parent_post": post.post_id }, None)
-            .await
-            .map_err(|e| e.to_string())
-            .unwrap();
-        // delete each of the posts as we do this
-        post_collection
-            .delete_one(doc! {"post_id": post.post_id}, None)
-            .await
-            .map_err(|e| e.to_string())
-            .unwrap();
-    }
-
-    // delete all comments made by that user
-    comment_collection
-        .delete_many(doc! { "commented_by": user.user_id }, None)
-        .await
-        .map_err(|e| e.to_string())
-        .unwrap();
+    let _ = safe_delete(user, &database).await;
 
     // finally delete the user
     HttpResponse::Ok().body("User deletion successful")
 }
-
 #[delete("/delete_comment/{comment_id}")]
 async fn delete_comment(client: web::Data<Client>, comment_id: web::Path<String>) -> HttpResponse {
     let comment_id = comment_id.into_inner();
