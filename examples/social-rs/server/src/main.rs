@@ -2,18 +2,17 @@ mod comment;
 mod post;
 mod user;
 
-use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder};
 use actix_cors::Cors;
+use actix_web::{delete, get, post, web, App, HttpResponse, HttpServer, Responder};
+use comment::Comment;
 use dotenv::dotenv;
-use futures::{StreamExt, TryStreamExt};
+use futures::StreamExt;
 use mongowner::delete::safe_delete;
 use mongowner::mongo::bson::doc;
 use mongowner::mongo::{Client, Collection, Database};
 use mongowner::Schemable;
-use petgraph::{algo::is_cyclic_directed, graphmap, Directed};
 use post::Post;
 use user::User;
-use comment::Comment;
 
 const DB_NAME: &str = "social";
 
@@ -44,12 +43,15 @@ async fn clear_posts(client: web::Data<Client>) -> HttpResponse {
 }
 
 #[delete("/delete_post/{post_id}")]
-async fn delete_post(client: web::Data<Client>,  post_id: web::Path<String>) -> HttpResponse {
+async fn delete_post(client: web::Data<Client>, post_id: web::Path<String>) -> HttpResponse {
     let post_id = post_id.into_inner();
     let database = client.database(DB_NAME);
     let collection: Collection<Post> = database.collection(Post::collection_name());
     let post = match collection
-        .find_one(doc! { "post_id": post_id.clone().to_string().parse::<i32>().unwrap() }, None)
+        .find_one(
+            doc! { "post_id": post_id.clone().to_string().parse::<i32>().unwrap() },
+            None,
+        )
         .await
     {
         Ok(Some(post)) => post,
@@ -62,14 +64,16 @@ async fn delete_post(client: web::Data<Client>,  post_id: web::Path<String>) -> 
     HttpResponse::Ok().body("Post deletion successful")
 }
 
-
 #[delete("/delete_user/{user_id}")]
-async fn delete_user(client: web::Data<Client>,  user_id: web::Path<String>) -> HttpResponse {
+async fn delete_user(client: web::Data<Client>, user_id: web::Path<String>) -> HttpResponse {
     let user_id = user_id.into_inner();
     let database = client.database(DB_NAME);
     let collection: Collection<User> = database.collection(User::collection_name());
     let user = match collection
-        .find_one(doc! { "user_id": user_id.clone().to_string().parse::<i32>().unwrap() }, None)
+        .find_one(
+            doc! { "user_id": user_id.clone().to_string().parse::<i32>().unwrap() },
+            None,
+        )
         .await
     {
         Ok(Some(user)) => user,
@@ -83,12 +87,15 @@ async fn delete_user(client: web::Data<Client>,  user_id: web::Path<String>) -> 
 }
 
 #[delete("/delete_comment/{comment_id}")]
-async fn delete_comment(client: web::Data<Client>,  comment_id: web::Path<String>) -> HttpResponse {
+async fn delete_comment(client: web::Data<Client>, comment_id: web::Path<String>) -> HttpResponse {
     let comment_id = comment_id.into_inner();
     let database = client.database(DB_NAME);
     let collection: Collection<Comment> = database.collection(Comment::collection_name());
     let comment = match collection
-        .find_one(doc! { "comment_id": comment_id.clone().to_string().parse::<i32>().unwrap() }, None)
+        .find_one(
+            doc! { "comment_id": comment_id.clone().to_string().parse::<i32>().unwrap() },
+            None,
+        )
         .await
     {
         Ok(Some(comment)) => comment,
@@ -100,10 +107,6 @@ async fn delete_comment(client: web::Data<Client>,  comment_id: web::Path<String
     let result = safe_delete(comment, &database).await;
     HttpResponse::Ok().body("Comment deletion successful")
 }
-
-
-
-
 
 #[get("/get_all_users")]
 async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
@@ -129,7 +132,9 @@ async fn get_all_users(client: web::Data<Client>) -> HttpResponse {
 
 #[get("/get_all_comments")]
 async fn get_all_comments(client: web::Data<Client>) -> HttpResponse {
-    let collection: Collection<Comment> = client.database(DB_NAME).collection(Comment::collection_name());
+    let collection: Collection<Comment> = client
+        .database(DB_NAME)
+        .collection(Comment::collection_name());
     let mut comments_cursor = match collection.find(None, None).await {
         mongowner::mongo::error::Result::Ok(cursor) => cursor,
         mongowner::mongo::error::Result::Err(err) => panic!("Failed in cursor loop"), // TODO: N - better error handling
@@ -261,7 +266,9 @@ async fn add_post(client: web::Data<Client>, form: web::Json<Post>) -> HttpRespo
 #[post("/add_comment")]
 async fn add_comment(client: web::Data<Client>, form: web::Json<Comment>) -> HttpResponse {
     println!("Req received at /add-comment");
-    let collection = client.database(DB_NAME).collection(Comment::collection_name());
+    let collection = client
+        .database(DB_NAME)
+        .collection(Comment::collection_name());
     println!("Getting post to add: {:?}", form.clone());
     let result = collection.insert_one(form.into_inner(), None).await;
     match result {
@@ -269,7 +276,6 @@ async fn add_comment(client: web::Data<Client>, form: web::Json<Comment>) -> Htt
         Err(err) => HttpResponse::InternalServerError().body(err.to_string()),
     }
 }
-
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -321,12 +327,14 @@ async fn main() -> std::io::Result<()> {
     // let users_coll = client.database("socials").collection::<User>("users");
     // users_coll.insert_one(&user, None).await.unwrap();
 
-
     HttpServer::new(move || {
         let cors = Cors::default()
             .allowed_origin("http://localhost:3000")
             .allowed_methods(vec!["GET", "POST", "PUT", "DELETE"])
-            .allowed_headers(vec![actix_web::http::header::AUTHORIZATION, actix_web::http::header::ACCEPT])
+            .allowed_headers(vec![
+                actix_web::http::header::AUTHORIZATION,
+                actix_web::http::header::ACCEPT,
+            ])
             .allowed_header(actix_web::http::header::CONTENT_TYPE)
             .max_age(3600);
 
@@ -351,5 +359,4 @@ async fn main() -> std::io::Result<()> {
     .bind("127.0.0.1:8080")?
     .run()
     .await
-
 }
