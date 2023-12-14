@@ -455,7 +455,6 @@ async fn safe_delete_multiple_owners() {
 // Comment owned by Post owned by User
 #[tokio::test]
 async fn safe_delete_post() {
-    set_graph_name();
     let db = init_test_db().await.expect("Error with init test db");
     let user_coll = db.collection::<User>(User::collection_name());
     let post_coll = db.collection::<Post>(Post::collection_name());
@@ -484,4 +483,39 @@ async fn safe_delete_post() {
     // all comments belonging to User0 should be deleted + all comments belonging to Posts by User0
     assert_eq!(100, coll_count::<Comment>(&comment_coll).await);
     teardown_db(&db).await;
+}
+
+// TODO: add safe_delete_large test that has a total of 100000 (100K) documents spread across the collections with 1 user owning 10000 posts each with 10 comments
+#[tokio::test]
+async fn safe_delete_large() {
+    let db = init_test_db().await.expect("Error with init test db");
+    let user_coll = db.collection::<User>(User::collection_name());
+    let post_coll = db.collection::<Post>(Post::collection_name());
+    let comment_coll = db.collection::<Comment>(Comment::collection_name());
+    // get all the other collections
+    let productives_coll = db.collection::<Productive>(Productive::collection_name());
+    let attachment_coll = db.collection::<Attachment>(Attachment::collection_name());
+    let mediamod_coll = db.collection::<MediaMod>(MediaMod::collection_name());
+    let modpost_coll = db.collection::<ModPost>(ModPost::collection_name());
+    let modresource_coll = db.collection::<ModResource>(ModResource::collection_name());
+    let mresource1_coll = db.collection::<MResource1>(MResource1::collection_name());
+    let mresource2_coll = db.collection::<MResource2>(MResource2::collection_name());
+    let mresource3_coll = db.collection::<MResource3>(MResource3::collection_name());
+
+    let user_id = 0;
+    let _ = insert_user(&user_coll, user_id).await;
+
+    // User0 owns 10k posts with ids in range [0, 9999]
+    insert_posts(&post_coll, user_id, 10000).await;
+    assert_eq!(10000, coll_count(&post_coll).await);
+
+    // User0 owns 100 comments on Post2
+    insert_comments(&comment_coll, 0, 2, 100).await;
+    assert_eq!(100, coll_count(&comment_coll).await);
+
+    insert_comments(&comment_coll, 0, 3, 100).await;
+    assert_eq!(200, coll_count(&comment_coll).await);
+
+     // use productives_coll
+    insert_productives(&productives_coll, 0, 2, 100).await;
 }
