@@ -63,7 +63,7 @@ make social_client
 ```
 
 ### websubmit-rs
-This is a proof-of-concept application that highlights our library's ability to translate and model SQL ownership relations from [K9Db](https://github.com/brownsys/K9db/) to a NoSQL paradigm. We currently have a file named `mongo\_schemas.rs` that contain an example of what the annotated schemas may look like
+This is a proof-of-concept application that highlights our library's ability to translate and model SQL ownership relations from [K9Db](https://github.com/brownsys/K9db/) to a NoSQL paradigm. We currently have a file named `mongo_schemas.rs` that contain an example of what the annotated schemas may look like
 Example of translating the `Answer` schema from K9Db's MySQL syntax to mongowner annotations:
 Original K9Db (MySQL) Schema
 ```
