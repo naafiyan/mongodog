@@ -20,6 +20,9 @@ mongowner_test:
 social_client:
 	cd examples/social-rs/frontend && bun dev
 
+social_bun_deps:
+	cd examples/social-rs/frontend && bun install
+
 clean:
 	cd social-rs/server && cargo clean
 	cd mongowner/mongowner-macros && cargo clean
