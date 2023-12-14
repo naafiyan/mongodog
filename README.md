@@ -66,7 +66,7 @@ make social_client
 This is a proof-of-concept application that highlights our library's ability to translate and model SQL ownership relations from [K9Db](https://github.com/brownsys/K9db/) to a NoSQL paradigm. We currently have a file named [`mongo_schemas.rs`](https://github.com/naafiyan/mongodog/blob/main/examples/websubmit-rs/src/mongo_schema.rs) that contain an example of what the annotated schemas may look like
 Example of translating the `Answer` schema from K9Db's MySQL syntax to mongowner annotations:
 
-Original K9Db (MySQL) Schema
+Original K9Db (MySQL) Schema:
 ```
 CREATE TABLE answers (
     id varchar(255),
@@ -80,7 +80,7 @@ CREATE TABLE answers (
 );
 ```
 
-`mongowner` schema
+`mongowner` schema:
 ```
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Schema)]
 #[collection(answers)]
