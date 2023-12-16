@@ -1,0 +1,1 @@
+{"nodes":["comments","users","posts"],"node_holes":[],"edge_property":"directed","edges":[[0,1,{"owner_index":"user_id","owned_field":"commented_by"}],[0,2,{"owner_index":"post_id","owned_field":"parent_post"}],[2,1,{"owner_index":"user_id","owned_field":"posted_by"}]]}

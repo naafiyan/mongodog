@@ -24,11 +24,13 @@ pub fn load_graph<'a>(
     let graph_path = dir_path
         .join("target")
         .join(std::env::var("GRAPH_NAME").unwrap_or("graph.json".to_string()));
+    println!("DEBUG safe_delete: Loading graph from {:#?}", graph_path);
     let mut file = fs::File::open(graph_path)?;
     file.read_to_string(contents)?;
     let graph: GraphMap<&str, OwnEdge, Directed> = match serde_json::from_str(contents) {
         Ok(g) => g,
         Err(_) => GraphMap::new(),
     };
+    println!("DEBUG safe_delete: {:#?}", graph);
     Ok(graph)
 }

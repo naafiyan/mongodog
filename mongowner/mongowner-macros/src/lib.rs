@@ -142,6 +142,7 @@ pub fn derive_schema(input: TokenStream) -> TokenStream {
                     let graph_path = dir_path
                         .join("target")
                         .join(std::env::var("GRAPH_NAME").unwrap_or("graph.json".to_string()));
+                    println!("DEBUG proc_macro writing to graph at {:#?}", graph_path);
                     match add_edge_to_file(&collection_name, &owner_coll_name, edge, &graph_path) {
                         Err(e) => panic!("Could not add edge to file: {:?}", e),
                         Ok(_) => (),
