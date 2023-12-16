@@ -1,4 +1,5 @@
 use mongowner::delete::safe_delete;
+use std::ops::Range;
 use std::u32;
 
 use fake::faker::boolean::en::Boolean;
@@ -288,13 +289,14 @@ pub async fn insert_modresources(coll: &Collection<ModResource>, moderator: u32,
         .expect("Error generating modresources");
 }
 
-pub async fn insert_mresources1(coll: &Collection<MResource1>, parent_res: u32, count: u32) {
+pub async fn insert_mresources1(coll: &Collection<MResource1>, count: Range<u32>) {
     let mut v: Vec<MResource1> = Vec::new();
-    for n in 0..count {
+    let low = &count.start.clone();
+    for n in count {
         v.push(MResource1 {
-            id: n,
+            id: n - low,
             r1: Word().fake(),
-            parent_res,
+            parent_res: n,
         });
     }
     coll.insert_many(v, None)
@@ -302,13 +304,14 @@ pub async fn insert_mresources1(coll: &Collection<MResource1>, parent_res: u32, 
         .expect("Error generating mresources1");
 }
 
-pub async fn insert_mresources2(coll: &Collection<MResource2>, parent_res: u32, count: u32) {
+pub async fn insert_mresources2(coll: &Collection<MResource2>, count: Range<u32>) {
     let mut v: Vec<MResource2> = Vec::new();
-    for n in 0..count {
+    let low = &count.start.clone();
+    for n in count {
         v.push(MResource2 {
-            id: n,
+            id: n - low,
             r2: Word().fake(),
-            parent_res,
+            parent_res: n,
         });
     }
     coll.insert_many(v, None)
@@ -316,13 +319,14 @@ pub async fn insert_mresources2(coll: &Collection<MResource2>, parent_res: u32, 
         .expect("Error generating mresources2");
 }
 
-pub async fn insert_mresources3(coll: &Collection<MResource3>, parent_res: u32, count: u32) {
+pub async fn insert_mresources3(coll: &Collection<MResource3>, count: Range<u32>) {
     let mut v: Vec<MResource3> = Vec::new();
-    for n in 0..count {
+    let low = &count.start.clone();
+    for n in count {
         v.push(MResource3 {
-            id: n,
+            id: n - low,
             r3: Word().fake(),
-            parent_res,
+            parent_res: n,
         });
     }
     coll.insert_many(v, None)
@@ -503,19 +507,63 @@ async fn safe_delete_large() {
     let mresource3_coll = db.collection::<MResource3>(MResource3::collection_name());
 
     let user_id = 0;
-    let _ = insert_user(&user_coll, user_id).await;
+    let user = insert_user(&user_coll, user_id).await;
 
     // User0 owns 10k posts with ids in range [0, 9999]
     insert_posts(&post_coll, user_id, 10000).await;
     assert_eq!(10000, coll_count(&post_coll).await);
 
-    // User0 owns 100 comments on Post2
-    insert_comments(&comment_coll, 0, 2, 100).await;
-    assert_eq!(100, coll_count(&comment_coll).await);
+    // User0 owns 10k comments on Post2
+    insert_comments(&comment_coll, 0, 2, 10000).await;
+    assert_eq!(10000, coll_count(&comment_coll).await);
 
-    insert_comments(&comment_coll, 0, 3, 100).await;
-    assert_eq!(200, coll_count(&comment_coll).await);
+    // User0 owns 10k comments on Post3
+    insert_comments(&comment_coll, 0, 3, 10000).await;
+    assert_eq!(20000, coll_count(&comment_coll).await);
 
-     // use productives_coll
-    insert_productives(&productives_coll, 0, 2, 100).await;
+    // User owns 10000 productives and they are also all owned by Comment2
+    insert_productives(&productives_coll, 0, 2, 10000).await;
+    assert_eq!(10000, coll_count(&productives_coll).await);
+
+    // User owns 10000 Attachments and also owned by Post0 and Comment1
+    insert_attachments(&attachment_coll, 0, 0, 1, 10000).await;
+    assert_eq!(10000, coll_count(&attachment_coll).await);
+
+    // separately mod stuff
+    let mod0 = MediaMod {
+        id: 0,
+        media_group: Word().fake(),
+    };
+
+    mediamod_coll
+        .insert_one(&mod0, None)
+        .await
+        .expect("Error inserting mediamod");
+
+    // mod0 owns 10000 modposts
+    insert_modposts(&modpost_coll, 0, 10000).await;
+    assert_eq!(10000, coll_count(&modpost_coll).await);
+
+    // mod0 owns 40000 mod resources
+    insert_modresources(&modresource_coll, 0, 40000).await;
+
+    // modresource1 owns modresources [0, 9.9k)
+    insert_mresources1(&mresource1_coll, 0..10000).await;
+
+    // modresource1 owns modresources
+    insert_mresources2(&mresource2_coll, 10000..20000).await;
+
+    // modresource1 owns modresources
+    insert_mresources3(&mresource3_coll, 20000..30000).await;
+
+    let _ = safe_delete(user, &db).await;
+    let _ = safe_delete(mod0, &db).await;
+
+    assert_eq!(0, coll_count(&post_coll).await);
+    assert_eq!(0, coll_count(&user_coll).await);
+    assert_eq!(0, coll_count(&comment_coll).await);
+    assert_eq!(0, coll_count(&modpost_coll).await);
+    assert_eq!(0, coll_count(&modresource_coll).await);
+
+    teardown_db(&db).await;
 }
