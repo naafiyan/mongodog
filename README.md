@@ -1,6 +1,8 @@
 # Mongodog
 Mongodog is a final project for Brown University's [CS2390: Privacy-Conscious Computer Systems](https://cs.brown.edu/courses/csci2390/2023/index.html) developed by [Naafiyan Ahmed](https://github.com/naafiyan), [Swetabh Changkakoti](https://github.com/swetabhch) and [Lucas Gelfond](https://github.com/lucasgelfond). We aim to improve developer experience and ensure correct deletion of data in a MongoDB database. It consists a Rust crate called `mongowner` as well as example implementations of this crate on applications.
 
+You can read our report [here](https://drive.google.com/file/d/1xrCS4JZ9BLYHTThUEk9tVcPpQUFrFF84/view?usp=sharing)!
+
 ## Mongowner
 We provide a Rust crate called `mongowner` that allows for easy-to-implement data ownership modelling and safe cascade deletion for MongoDB. The `mongowner` crate is still under development and will be published once it is stable and feature-ready.
 
